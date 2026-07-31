@@ -1,4 +1,4 @@
-"""Minimal HTTP server for the codeindex visualization UI."""
+"""Minimal HTTP server for the blastradius visualization UI."""
 from __future__ import annotations
 import json
 import os
@@ -12,11 +12,11 @@ HERE = Path(__file__).parent
 VIZ_HTML = HERE.parent / "viz" / "explorer.html"
 
 REPO_PATH  = "."
-INDEX_FILE: Path = Path("codeindex.json")
+INDEX_FILE: Path = Path("blastradius.json")
 
 
 def _run_analysis(repo_path: str, output: Path) -> bool:
-    from codeindex.index import build
+    from blastradius.index import build
     try:
         build(repo_path, output)
         return True
@@ -60,7 +60,7 @@ class _Handler(BaseHTTPRequestHandler):
             if INDEX_FILE.exists():
                 self._send_file(INDEX_FILE, "application/json")
             else:
-                self._send_json({"error": "codeindex.json not found — run: codeindex analyze <repo>"}, 404)
+                self._send_json({"error": "blastradius.json not found — run: blastradius analyze <repo>"}, 404)
 
         elif path == "/refresh":
             ok = _run_analysis(REPO_PATH, INDEX_FILE)
@@ -111,7 +111,7 @@ def _start_watcher(repo_path: str) -> None:
 def serve(repo_path: str, port: int = 8080, watch: bool = False, output: Path | None = None) -> None:
     global REPO_PATH, INDEX_FILE
     REPO_PATH  = repo_path
-    INDEX_FILE = output or (Path(repo_path).resolve() / "codeindex.json")
+    INDEX_FILE = output or (Path(repo_path).resolve() / "blastradius.json")
 
     print(f"Analyzing {repo_path} …", file=sys.stderr)
     _run_analysis(repo_path, INDEX_FILE)

@@ -1,6 +1,6 @@
-# Engineering Handoff — codeindex Temporal Knowledge Graph
+# Engineering Handoff — blastradius Temporal Knowledge Graph
 
-**Repo:** `scheidydudes-github-repos/codeindex`  
+**Repo:** `scheidydudes-github-repos/blastradius`  
 **Branch:** `main` (4 commits ahead of origin)  
 **Last commit:** `e863853` — Phase 2 temporal layer  
 **Test status:** 11/11 passing (`uv run pytest` or `.venv/bin/pytest`)
@@ -9,7 +9,7 @@
 
 ## 1. Mission
 
-We're evolving `codeindex` from a stateless point-in-time dependency analyzer into a **self-hosted temporal code knowledge graph** — persistent, incremental, and semantically queryable. The design document is `docs/codeindex-temporal-knowledge-graph.md` (CKG-DESIGN-001). Phases 0–2 are complete and committed. Next up is Phase 3 (semantic retrieval via embeddings) then Phase 4 (MCP surface + README).
+We're evolving `blastradius` from a stateless point-in-time dependency analyzer into a **self-hosted temporal code knowledge graph** — persistent, incremental, and semantically queryable. The design document is `docs/blastradius-temporal-knowledge-graph.md` (CKG-DESIGN-001). Phases 0–2 are complete and committed. Next up is Phase 3 (semantic retrieval via embeddings) then Phase 4 (MCP surface + README).
 
 ---
 
@@ -19,30 +19,30 @@ We're evolving `codeindex` from a stateless point-in-time dependency analyzer in
 
 - **Phase 0** (`555c38d`): `docs/CKG-INTERNALS.md` — full internal map of the pre-change codebase. No behavior changes.
 
-- **Phase 1** (`9b167d6`): SQLite store at `<repo>/.codeindex/index.db`.  
-  - `Store` class in `codeindex/store/db.py` — schema v1, WAL mode, upsert/soft-delete for files/edges/symbols, FTS5 symbol index.  
+- **Phase 1** (`9b167d6`): SQLite store at `<repo>/.blastradius/index.db`.  
+  - `Store` class in `blastradius/store/db.py` — schema v1, WAL mode, upsert/soft-delete for files/edges/symbols, FTS5 symbol index.  
   - `index.build()` now syncs to DB as a side effect after every `analyze` run. JSON export unchanged.  
-  - `codeindex db status` / `codeindex db migrate` CLI commands.  
+  - `blastradius db status` / `blastradius db migrate` CLI commands.  
   - Incremental detection: logs `N file(s) changed since <commit>` based on `git diff --name-status`.  
   - 5 tests: golden idempotency, DB population, incremental detection, status counts, soft-delete.
 
 - **Phase 2** (`e863853`): Temporal layer.  
-  - `codeindex/temporal/history.py`: `backfill()` walks git log via `git ls-tree` + `git cat-file --batch`; never touches working tree; sets `first_seen_commit`/`last_seen_commit` on files and edges.  
+  - `blastradius/temporal/history.py`: `backfill()` walks git log via `git ls-tree` + `git cat-file --batch`; never touches working tree; sets `first_seen_commit`/`last_seen_commit` on files and edges.  
   - `Store.as_of_impact(file, reachable_set)`: blast radius at a historical point using SQLite temp table for commit ancestry.  
   - `Store.changed_since(reachable_set)`: files/edges added or removed since a ref.  
-  - `codeindex history [--since REF] [--max-commits N]`  
-  - `codeindex changed-since <ref>`  
-  - `codeindex impact FILE --as-of <ref>`  
+  - `blastradius history [--since REF] [--max-commits N]`  
+  - `blastradius changed-since <ref>`  
+  - `blastradius impact FILE --as-of <ref>`  
   - 6 tests: as-of differs from HEAD, changed_since edges, backfill populates commits table, first_seen_commit set, no working-tree modification, changed-since added file.
 
 ### What's NOT yet built
 
-- **Phase 3** (semantic layer): `codeindex/semantic/` package, embedding provider, `vec_symbols` table, `codeindex search` command, hybrid RRF query engine.
+- **Phase 3** (semantic layer): `blastradius/semantic/` package, embedding provider, `vec_symbols` table, `blastradius search` command, hybrid RRF query engine.
 - **Phase 4** (surface): 4 new MCP tools (`semantic_search`, `temporal_impact`, `graph_query`, `changed_since`), README update.
 
 ### Exact next action
 
-Start Phase 3. The design doc (`docs/codeindex-temporal-knowledge-graph.md` §6.4, §6.5, §8 Phase 3) is the authoritative spec. Read it before writing code.
+Start Phase 3. The design doc (`docs/blastradius-temporal-knowledge-graph.md` §6.4, §6.5, §8 Phase 3) is the authoritative spec. Read it before writing code.
 
 ---
 
@@ -57,7 +57,7 @@ Start Phase 3. The design doc (`docs/codeindex-temporal-knowledge-graph.md` §6.
 
 **Decision:** JSON write path is fully unchanged; DB is an additive side-effect  
 **Alternatives considered:** Replace JSON with DB-only export; migrate callers to read from DB  
-**Reason:** Backward compatibility — every existing CLI command, MCP tool, and viz server reads `codeindex.json`. Phase 4 will eventually add DB-backed read paths, but for now JSON stays as the source of truth for queries.  
+**Reason:** Backward compatibility — every existing CLI command, MCP tool, and viz server reads `blastradius.json`. Phase 4 will eventually add DB-backed read paths, but for now JSON stays as the source of truth for queries.  
 **Reversibility:** Load-bearing for Phases 1–3; Phase 4 is the right time to revisit.
 
 ---
@@ -86,7 +86,7 @@ Start Phase 3. The design doc (`docs/codeindex-temporal-knowledge-graph.md` §6.
 **Decision:** uv venv at `.venv/` with Python 3.11  
 **Alternatives considered:** System pip (broken on this machine due to packaging metadata corruption)  
 **Reason:** System pip had a corrupted `packaging` package. uv created a clean 3.11 venv.  
-**Reversibility:** Easy. Run `.venv/bin/pytest` or `.venv/bin/codeindex` for everything.
+**Reversibility:** Easy. Run `.venv/bin/pytest` or `.venv/bin/blastradius` for everything.
 
 ---
 
@@ -96,10 +96,10 @@ Start Phase 3. The design doc (`docs/codeindex-temporal-knowledge-graph.md` §6.
 
 | File | Purpose |
 |---|---|
-| `codeindex/store/__init__.py` | Re-exports `Store` |
-| `codeindex/store/db.py` | `Store` class: schema, upsert/soft-delete, temporal queries, FTS, status |
-| `codeindex/temporal/__init__.py` | Re-exports `backfill` |
-| `codeindex/temporal/history.py` | `backfill()`, git plumbing helpers, lightweight import extractor |
+| `blastradius/store/__init__.py` | Re-exports `Store` |
+| `blastradius/store/db.py` | `Store` class: schema, upsert/soft-delete, temporal queries, FTS, status |
+| `blastradius/temporal/__init__.py` | Re-exports `backfill` |
+| `blastradius/temporal/history.py` | `backfill()`, git plumbing helpers, lightweight import extractor |
 | `tests/test_phase1.py` | 5 Phase 1 acceptance tests |
 | `tests/test_phase2.py` | 6 Phase 2 acceptance tests |
 | `tests/fixtures/simple_python/` | 3-file Python fixture repo (main, utils, models) |
@@ -109,29 +109,29 @@ Start Phase 3. The design doc (`docs/codeindex-temporal-knowledge-graph.md` §6.
 
 | File | What changed |
 |---|---|
-| `codeindex/index.py` | Added `git_reachable()`, `git_resolve()`, `db_path_for()`, `find_db()`. `build()` now syncs to Store after enrichment. Content hashes computed pre-sync, stripped before JSON write. |
-| `codeindex/cli.py` | Added `_cmd_db`, `_cmd_history`, `_cmd_changed_since`. Updated `_cmd_impact` to handle `--as-of`. Added `history`, `changed-since`, `db` subparsers. Added `--as-of` arg to `impact`. |
+| `blastradius/index.py` | Added `git_reachable()`, `git_resolve()`, `db_path_for()`, `find_db()`. `build()` now syncs to Store after enrichment. Content hashes computed pre-sync, stripped before JSON write. |
+| `blastradius/cli.py` | Added `_cmd_db`, `_cmd_history`, `_cmd_changed_since`. Updated `_cmd_impact` to handle `--as-of`. Added `history`, `changed-since`, `db` subparsers. Added `--as-of` arg to `impact`. |
 | `pyproject.toml` | Added `dev = ["pytest>=7"]`, `semantic = ["sqlite-vec"]` extras. Added `[tool.pytest.ini_options]`. |
 
 ### Should NOT be touched
 
 | File | Why |
 |---|---|
-| `codeindex/analyze.py` | Full repo analysis dispatcher — untouched by design. Per-file incremental parsing is a future optimization. |
-| `codeindex/analyzers/*.py` | All existing analyzers — Phase 1–3 don't modify them. |
-| `codeindex/mcp_server.py` | Existing 6 MCP tools — Phase 4 adds new ones alongside, never modifies existing. |
-| `codeindex/impact.py` | `compute_blast_radius()` is called directly by `Store.as_of_impact()`. Don't change its signature. |
-| `docs/codeindex-temporal-knowledge-graph.md` | The spec. Don't edit it; read it. |
+| `blastradius/analyze.py` | Full repo analysis dispatcher — untouched by design. Per-file incremental parsing is a future optimization. |
+| `blastradius/analyzers/*.py` | All existing analyzers — Phase 1–3 don't modify them. |
+| `blastradius/mcp_server.py` | Existing 6 MCP tools — Phase 4 adds new ones alongside, never modifies existing. |
+| `blastradius/impact.py` | `compute_blast_radius()` is called directly by `Store.as_of_impact()`. Don't change its signature. |
+| `docs/blastradius-temporal-knowledge-graph.md` | The spec. Don't edit it; read it. |
 
 ### Phase 3 will create
 
 ```
-codeindex/semantic/__init__.py
-codeindex/semantic/provider.py   # EmbeddingProvider ABC + OpenAI-compat HTTP impl
-codeindex/semantic/search.py     # Hybrid query engine (semantic + FTS + graph, RRF)
+blastradius/semantic/__init__.py
+blastradius/semantic/provider.py   # EmbeddingProvider ABC + OpenAI-compat HTTP impl
+blastradius/semantic/search.py     # Hybrid query engine (semantic + FTS + graph, RRF)
 ```
 
-And add to `Store` in `codeindex/store/db.py`:
+And add to `Store` in `blastradius/store/db.py`:
 - `vec_symbols` virtual table (gated behind `sqlite-vec` import)
 - `upsert_embeddings(symbol_ids_and_vecs)` method
 - `semantic_search(query_vec, k, reachable)` method
@@ -153,13 +153,13 @@ Python's `sqlite3.executescript()` commits any pending transaction before runnin
 The format is: `<hash> blob <size>\n<content>\n` for each object. The parser in `history.py:_git_cat_file_batch()` reads byte-by-byte with `pos` tracking. Don't replace this with individual `git show` calls — it's deliberately batch for performance.
 
 **System pip is broken on this machine**  
-Don't use `pip3` or `python3` directly. Always use `.venv/bin/pytest`, `.venv/bin/codeindex`, `.venv/bin/python3`. The miniforge Python 3.9 has a corrupted `packaging` package that causes `pip install` to fail.
+Don't use `pip3` or `python3` directly. Always use `.venv/bin/pytest`, `.venv/bin/blastradius`, `.venv/bin/python3`. The miniforge Python 3.9 has a corrupted `packaging` package that causes `pip install` to fail.
 
 **`sqlite-vec` for Phase 3 must be feature-detected at runtime**  
-The design doc requires graceful degradation: if `sqlite-vec` can't load (not installed, wrong platform), `codeindex search` falls back to FTS + graph with a clear log message. Never `import sqlite_vec` at module level — always try/except around the extension load, same pattern as the FTS DDL in `_apply_schema()`.
+The design doc requires graceful degradation: if `sqlite-vec` can't load (not installed, wrong platform), `blastradius search` falls back to FTS + graph with a clear log message. Never `import sqlite_vec` at module level — always try/except around the extension load, same pattern as the FTS DDL in `_apply_schema()`.
 
 **Dependency direction is a hard constraint**  
-`codeindex/core/`, `store/`, and `temporal/` must NEVER import from `codeindex/graph/` or `codeindex/semantic/`. The import arrow points downward only. The current `store/db.py` has a local import of `compute_blast_radius` inside `as_of_impact()` — this is a `codeindex.impact` import (core layer), which is fine.
+`blastradius/core/`, `store/`, and `temporal/` must NEVER import from `blastradius/graph/` or `blastradius/semantic/`. The import arrow points downward only. The current `store/db.py` has a local import of `compute_blast_radius` inside `as_of_impact()` — this is a `blastradius.impact` import (core layer), which is fine.
 
 ---
 
@@ -188,7 +188,7 @@ except ImportError:
 
 **No comments on obvious code.** Comments only for non-obvious constraints or workarounds (e.g., the FTS content= issue). No docstrings on trivial methods.
 
-**JSON schema is frozen.** `codeindex.json` and `symbolindex.json` schemas don't change. Any new data lives in the DB only, exposed via new CLI/MCP commands.
+**JSON schema is frozen.** `blastradius.json` and `symbolindex.json` schemas don't change. Any new data lives in the DB only, exposed via new CLI/MCP commands.
 
 ---
 
@@ -206,15 +206,15 @@ except ImportError:
 
 ## 8. Do Not Touch
 
-- **`codeindex/mcp_server.py`** — existing 6 tools work and are not under change until Phase 4. Phase 4 adds new tools alongside; it doesn't modify existing ones.
-- **`codeindex/analyze.py` and `codeindex/analyzers/`** — the parsing pipeline is deliberately untouched. Any incremental per-file parsing is a future optimization, not Phase 3.
-- **The `codeindex.json` / `symbolindex.json` schema** — frozen per constraint #3.
+- **`blastradius/mcp_server.py`** — existing 6 tools work and are not under change until Phase 4. Phase 4 adds new tools alongside; it doesn't modify existing ones.
+- **`blastradius/analyze.py` and `blastradius/analyzers/`** — the parsing pipeline is deliberately untouched. Any incremental per-file parsing is a future optimization, not Phase 3.
+- **The `blastradius.json` / `symbolindex.json` schema** — frozen per constraint #3.
 - **`.venv/`** — don't recreate or upgrade. Python 3.11, packages installed via `uv pip install -e ".[dev,yaml]"`.
-- **`docs/codeindex-temporal-knowledge-graph.md`** — the spec document. Read-only.
+- **`docs/blastradius-temporal-knowledge-graph.md`** — the spec document. Read-only.
 - **`SCHEMA_VERSION = "1"` in `store/db.py`** — don't bump until Phase 3 actually adds the `vec_symbols` table, and then also add a migration path.
 
 ---
 
 ## 9. Resume Command
 
-> Read `HANDOFF.md` and `docs/codeindex-temporal-knowledge-graph.md` (§6.4, §6.5, §8 Phase 3, §9 Constraints). Then implement Phase 3: create `codeindex/semantic/` with an embedding provider interface and OpenAI-compatible HTTP client (stdlib urllib only, no new runtime deps for the client), add `vec_symbols` to the Store gated behind `sqlite-vec`, implement `codeindex search` with hybrid RRF retrieval (semantic + FTS + graph), and add degradation tests. Use `.venv/bin/pytest` to run tests. Do not modify existing analyzers, the JSON export schema, or any existing MCP tools. Run all 11 existing tests before committing — they must stay green.
+> Read `HANDOFF.md` and `docs/blastradius-temporal-knowledge-graph.md` (§6.4, §6.5, §8 Phase 3, §9 Constraints). Then implement Phase 3: create `blastradius/semantic/` with an embedding provider interface and OpenAI-compatible HTTP client (stdlib urllib only, no new runtime deps for the client), add `vec_symbols` to the Store gated behind `sqlite-vec`, implement `blastradius search` with hybrid RRF retrieval (semantic + FTS + graph), and add degradation tests. Use `.venv/bin/pytest` to run tests. Do not modify existing analyzers, the JSON export schema, or any existing MCP tools. Run all 11 existing tests before committing — they must stay green.

@@ -1,4 +1,4 @@
-"""codeindex CLI entry point."""
+"""blastradius CLI entry point."""
 from __future__ import annotations
 import argparse
 import json
@@ -7,7 +7,7 @@ from pathlib import Path
 
 
 def _cmd_analyze(args: argparse.Namespace) -> None:
-    from codeindex.index import build
+    from blastradius.index import build
     repo = args.repo
     output = Path(args.output) if args.output else None
 
@@ -16,7 +16,7 @@ def _cmd_analyze(args: argparse.Namespace) -> None:
             from watchdog.observers import Observer
             from watchdog.events import FileSystemEventHandler
         except ImportError:
-            print("watchdog not installed — run: pip install 'codeindex[watch]'", file=sys.stderr)
+            print("watchdog not installed — run: pip install 'blastradius[watch]'", file=sys.stderr)
             sys.exit(1)
 
         import threading
@@ -26,7 +26,7 @@ def _cmd_analyze(args: argparse.Namespace) -> None:
             ".rb", ".go", ".rs", ".java", ".kt", ".php",
             ".yml", ".yaml", ".sql", ".prisma",
         }
-        dest = output or (Path(repo).resolve() / "codeindex.json")
+        dest = output or (Path(repo).resolve() / "blastradius.json")
 
         class _Watcher(FileSystemEventHandler):
             def __init__(self):
@@ -62,16 +62,16 @@ def _cmd_analyze(args: argparse.Namespace) -> None:
 
 
 def _cmd_impact(args: argparse.Namespace) -> None:
-    from codeindex.index import load, find_index, find_db, db_path_for, INDEX_FILENAME
-    from codeindex.index import git_reachable, git_resolve
-    from codeindex.impact import compute_blast_radius
-    from codeindex.reporter import format_stdout, format_markdown
+    from blastradius.index import load, find_index, find_db, db_path_for, INDEX_FILENAME
+    from blastradius.index import git_reachable, git_resolve
+    from blastradius.impact import compute_blast_radius
+    from blastradius.reporter import format_stdout, format_markdown
 
     as_of = getattr(args, "as_of", None)
 
     if as_of:
         # ── temporal path: query DB for historical blast radius ────────────────
-        from codeindex.store import Store
+        from blastradius.store import Store
 
         repo = Path(args.file).resolve().parent
         db_path = find_db(repo) or find_db(Path.cwd())
@@ -79,7 +79,7 @@ def _cmd_impact(args: argparse.Namespace) -> None:
             # Try discovering from cwd upward
             db_path = find_db(Path.cwd())
         if not db_path or not db_path.exists():
-            print("No .codeindex/index.db found — run: codeindex analyze <repo>", file=sys.stderr)
+            print("No .blastradius/index.db found — run: blastradius analyze <repo>", file=sys.stderr)
             sys.exit(1)
 
         # Resolve repo root from DB meta
@@ -122,7 +122,7 @@ def _cmd_impact(args: argparse.Namespace) -> None:
         if blast is None:
             print(
                 f"No temporal data for {file_id} at {as_of}. "
-                "Run `codeindex history` to backfill, or `codeindex analyze` at each commit.",
+                "Run `blastradius history` to backfill, or `blastradius analyze` at each commit.",
                 file=sys.stderr,
             )
             sys.exit(1)
@@ -152,7 +152,7 @@ def _cmd_impact(args: argparse.Namespace) -> None:
             index_path = find_index(Path.cwd())
         if not index_path:
             print(
-                f"No {INDEX_FILENAME} found. Run: codeindex analyze <repo>",
+                f"No {INDEX_FILENAME} found. Run: blastradius analyze <repo>",
                 file=sys.stderr,
             )
             sys.exit(1)
@@ -201,10 +201,10 @@ def _cmd_impact(args: argparse.Namespace) -> None:
 
 def _cmd_serve(args: argparse.Namespace) -> None:
     if args.mcp:
-        from codeindex.mcp_server import serve
+        from blastradius.mcp_server import serve
         serve()
     else:
-        from codeindex.viz_server import serve
+        from blastradius.viz_server import serve
         output = Path(args.output) if getattr(args, "output", None) else None
         serve(
             repo_path=args.repo,
@@ -215,11 +215,11 @@ def _cmd_serve(args: argparse.Namespace) -> None:
 
 
 def _cmd_symbols(args: argparse.Namespace) -> None:
-    from codeindex.symbols import (
+    from blastradius.symbols import (
         build_symbol_index, write_standalone, write_inline, write_claude_md,
         SYMBOL_INDEX_FILENAME,
     )
-    from codeindex.index import find_index, INDEX_FILENAME
+    from blastradius.index import find_index, INDEX_FILENAME
 
     repo = Path(args.repo).resolve()
     symbol_data = build_symbol_index(str(repo))
@@ -231,7 +231,7 @@ def _cmd_symbols(args: argparse.Namespace) -> None:
             index_path = find_index(repo)
             if not index_path:
                 print(
-                    f"No {INDEX_FILENAME} found — run: codeindex analyze <repo> first, "
+                    f"No {INDEX_FILENAME} found — run: blastradius analyze <repo> first, "
                     "or pass --index <path>",
                     file=sys.stderr,
                 )
@@ -247,8 +247,8 @@ def _cmd_symbols(args: argparse.Namespace) -> None:
 
 
 def _cmd_lookup(args: argparse.Namespace) -> None:
-    from codeindex.index import db_path_for, find_index, INDEX_FILENAME
-    from codeindex.store import Store
+    from blastradius.index import db_path_for, find_index, INDEX_FILENAME
+    from blastradius.store import Store
 
     name = args.name
     matches = []
@@ -274,13 +274,13 @@ def _cmd_lookup(args: argparse.Namespace) -> None:
     # Fall back to symbolindex.json when DB not available
     if not matches and not args.index:
         try:
-            from codeindex.mcp_server import _resolve_symbol_index
+            from blastradius.mcp_server import _resolve_symbol_index
             sym_data = _resolve_symbol_index(None)
             matches = sym_data.get("symbols", {}).get(name, [])
         except FileNotFoundError:
             pass
     elif not matches and args.index:
-        from codeindex.mcp_server import _resolve_symbol_index
+        from blastradius.mcp_server import _resolve_symbol_index
         sym_data = _resolve_symbol_index(args.index)
         matches = sym_data.get("symbols", {}).get(name, [])
 
@@ -309,13 +309,13 @@ def _cmd_lookup(args: argparse.Namespace) -> None:
 
 
 def _cmd_dependencies(args: argparse.Namespace) -> None:
-    from codeindex.index import load, find_index, INDEX_FILENAME
+    from blastradius.index import load, find_index, INDEX_FILENAME
     if args.index:
         index_path = Path(args.index)
     else:
         index_path = find_index(Path(args.file).parent) or find_index(Path.cwd())
         if not index_path:
-            print(f"No {INDEX_FILENAME} found. Run: codeindex analyze <repo>", file=sys.stderr)
+            print(f"No {INDEX_FILENAME} found. Run: blastradius analyze <repo>", file=sys.stderr)
             sys.exit(1)
     data = load(index_path)
     fp = args.file
@@ -347,13 +347,13 @@ def _cmd_dependencies(args: argparse.Namespace) -> None:
 
 
 def _cmd_high_blast(args: argparse.Namespace) -> None:
-    from codeindex.index import load, find_index, INDEX_FILENAME
+    from blastradius.index import load, find_index, INDEX_FILENAME
     if args.index:
         index_path = Path(args.index)
     else:
         index_path = find_index(Path.cwd())
         if not index_path:
-            print(f"No {INDEX_FILENAME} found. Run: codeindex analyze <repo>", file=sys.stderr)
+            print(f"No {INDEX_FILENAME} found. Run: blastradius analyze <repo>", file=sys.stderr)
             sys.exit(1)
     data = load(index_path)
     threshold = args.threshold
@@ -371,7 +371,7 @@ def _cmd_high_blast(args: argparse.Namespace) -> None:
             for n in results
         ]}, indent=2))
     else:
-        print(f"Files with blast score ≥ {threshold}  ({len(results)} found)\n")
+        print(f"Files with blast score >= {threshold}  ({len(results)} found)\n")
         for n in results:
             loc = n.get("loc", 0)
             loc_str = f"  {loc} loc" if loc else ""
@@ -381,15 +381,15 @@ def _cmd_high_blast(args: argparse.Namespace) -> None:
 
 def _cmd_symbol_blast(args: argparse.Namespace) -> None:
     """Per-export blast radius: which importers reference each exported symbol."""
-    from codeindex.index import find_db
+    from blastradius.index import find_db
     import re as _re
 
     db_path = find_db(Path.cwd())
     if not db_path or not db_path.exists():
-        print("No .codeindex/index.db found — run: codeindex analyze <repo>", file=sys.stderr)
+        print("No .blastradius/index.db found — run: blastradius analyze <repo>", file=sys.stderr)
         sys.exit(1)
 
-    from codeindex.store import Store
+    from blastradius.store import Store
     store = Store(db_path)
     file_path = args.file
 
@@ -444,12 +444,12 @@ def _cmd_symbol_blast(args: argparse.Namespace) -> None:
 
 
 def _cmd_db(args: argparse.Namespace) -> None:
-    from codeindex.index import find_db
-    from codeindex.store import Store
+    from blastradius.index import find_db
+    from blastradius.store import Store
 
     db_path = Path(args.db) if getattr(args, "db", None) else find_db(Path.cwd())
     if not db_path or not db_path.exists():
-        print("No .codeindex/index.db found — run: codeindex analyze <repo>", file=sys.stderr)
+        print("No .blastradius/index.db found — run: blastradius analyze <repo>", file=sys.stderr)
         sys.exit(1)
 
     if args.db_command == "status":
@@ -477,9 +477,9 @@ def _cmd_db(args: argparse.Namespace) -> None:
 
 
 def _cmd_history(args: argparse.Namespace) -> None:
-    from codeindex.index import find_db, db_path_for
-    from codeindex.store import Store
-    from codeindex.temporal import backfill
+    from blastradius.index import find_db, db_path_for
+    from blastradius.store import Store
+    from blastradius.temporal import backfill
 
     repo = Path(args.repo).resolve()
     db_path = find_db(repo) or db_path_for(repo)
@@ -503,12 +503,12 @@ def _cmd_history(args: argparse.Namespace) -> None:
 
 
 def _cmd_changed_since(args: argparse.Namespace) -> None:
-    from codeindex.index import find_db, git_reachable, git_resolve, git_modified
-    from codeindex.store import Store
+    from blastradius.index import find_db, git_reachable, git_resolve, git_modified
+    from blastradius.store import Store
 
     db_path = Path(args.db) if getattr(args, "db", None) else find_db(Path.cwd())
     if not db_path or not db_path.exists():
-        print("No .codeindex/index.db found — run: codeindex analyze <repo>", file=sys.stderr)
+        print("No .blastradius/index.db found — run: blastradius analyze <repo>", file=sys.stderr)
         sys.exit(1)
 
     repo = Path(args.repo).resolve() if getattr(args, "repo", None) else Path.cwd()
@@ -592,36 +592,36 @@ def _cmd_changed_since(args: argparse.Namespace) -> None:
             if result.get("warning"):
                 # history has never been run — backfill will resolve these
                 print(f"\n  ({analyze_origin_count} of {len(ae)} added edge(s) first seen at last-analyzed HEAD"
-                      f" — run `codeindex history` to date them accurately)")
+                      f" — run `blastradius history` to date them accurately)")
             else:
                 # history has been run; these edges predate the first analyze
                 print(f"\n  ({analyze_origin_count} of {len(ae)} added edge(s) are bootstrap-gap artifacts:"
-                      f" they existed before the first `codeindex analyze` and cannot be dated further)")
+                      f" they existed before the first `blastradius analyze` and cannot be dated further)")
         if not any([mf, af, rf, ae, re_]):
             print("  (no changes detected)")
 
 
 def _cmd_search(args: argparse.Namespace) -> None:
-    from codeindex.index import find_db, git_reachable, git_resolve
-    from codeindex.store import Store
-    from codeindex.semantic.search import hybrid_search
+    from blastradius.index import find_db, git_reachable, git_resolve
+    from blastradius.store import Store
+    from blastradius.semantic.search import hybrid_search
 
     db_path = Path(args.db) if getattr(args, "db", None) else find_db(Path.cwd())
     if not db_path or not db_path.exists():
-        print("No .codeindex/index.db found — run: codeindex analyze <repo>", file=sys.stderr)
+        print("No .blastradius/index.db found — run: blastradius analyze <repo>", file=sys.stderr)
         sys.exit(1)
 
     store = Store(db_path)
 
     provider = None
     import os
-    endpoint = os.environ.get("CODEINDEX_EMBEDDING_ENDPOINT", "")
-    model = os.environ.get("CODEINDEX_EMBEDDING_MODEL", "")
-    dims_str = os.environ.get("CODEINDEX_EMBEDDING_DIMS", "")
+    endpoint = os.environ.get("BLASTRADIUS_EMBEDDING_ENDPOINT", "")
+    model = os.environ.get("BLASTRADIUS_EMBEDDING_MODEL", "")
+    dims_str = os.environ.get("BLASTRADIUS_EMBEDDING_DIMS", "")
     if endpoint and model and dims_str:
         try:
             dims = int(dims_str)
-            from codeindex.semantic.provider import OpenAIEmbeddingProvider
+            from blastradius.semantic.provider import OpenAIEmbeddingProvider
             provider = OpenAIEmbeddingProvider(endpoint=endpoint, model=model, dims=dims)
         except Exception:
             pass
@@ -673,7 +673,7 @@ def _cmd_search(args: argparse.Namespace) -> None:
 
 
 def _cmd_install_hook(args: argparse.Namespace) -> None:
-    from codeindex.hook import install
+    from blastradius.hook import install
     install(
         repo_path=args.repo,
         threshold=args.threshold,
@@ -684,21 +684,21 @@ def _cmd_install_hook(args: argparse.Namespace) -> None:
 
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        prog="codeindex",
+        prog="blastradius",
         description="Repo dependency analyzer with blast-radius impact scoring.",
     )
     sub = parser.add_subparsers(dest="command", required=True)
 
     # ── analyze ────────────────────────────────────────────────────────────
-    p_analyze = sub.add_parser("analyze", help="Analyze a repo and write codeindex.json")
+    p_analyze = sub.add_parser("analyze", help="Analyze a repo and write blastradius.json")
     p_analyze.add_argument("repo", nargs="?", default=".", help="Path to repo root (default: .)")
-    p_analyze.add_argument("--output", help="Output path (default: <repo>/codeindex.json)")
+    p_analyze.add_argument("--output", help="Output path (default: <repo>/blastradius.json)")
     p_analyze.add_argument("--watch", action="store_true", help="Re-index on file changes")
 
     # ── impact ─────────────────────────────────────────────────────────────
     p_impact = sub.add_parser("impact", help="Show blast-radius impact for a file")
     p_impact.add_argument("file", help="File path to assess")
-    p_impact.add_argument("--index", help="Path to codeindex.json (auto-discovered if omitted)")
+    p_impact.add_argument("--index", help="Path to blastradius.json (auto-discovered if omitted)")
     p_impact.add_argument("--out", help="Write markdown report to this file")
     p_impact.add_argument("--json", action="store_true", help="Output raw JSON")
     p_impact.add_argument("--as-of", dest="as_of", metavar="REF",
@@ -712,7 +712,7 @@ def _build_parser() -> argparse.ArgumentParser:
     p_serve.add_argument("--repo", default=".", help="Repo to analyze (viz mode)")
     p_serve.add_argument("--port", type=int, default=8080, help="Port for viz server")
     p_serve.add_argument("--watch", action="store_true", help="Watch for file changes (viz mode)")
-    p_serve.add_argument("--output", help="codeindex.json path override (viz mode)")
+    p_serve.add_argument("--output", help="blastradius.json path override (viz mode)")
 
     # ── symbols ────────────────────────────────────────────────────────────────
     p_sym = sub.add_parser("symbols", help="Build a symbol index (functions, classes, exports)")
@@ -722,11 +722,11 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     p_sym.add_argument(
         "--inline", action="store_true",
-        help="Embed symbols into codeindex.json nodes instead of a separate file",
+        help="Embed symbols into blastradius.json nodes instead of a separate file",
     )
     p_sym.add_argument(
         "--index",
-        help="Path to codeindex.json for --inline mode (auto-discovered if omitted)",
+        help="Path to blastradius.json for --inline mode (auto-discovered if omitted)",
     )
     p_sym.add_argument(
         "--claude-md", dest="claude_md", action="store_true",
@@ -750,13 +750,13 @@ def _build_parser() -> argparse.ArgumentParser:
     # ── dependencies ───────────────────────────────────────────────────────
     p_deps = sub.add_parser("dependencies", help="Show imports and imported-by for a file")
     p_deps.add_argument("file", help="File path to inspect")
-    p_deps.add_argument("--index", help="Path to codeindex.json (auto-discovered if omitted)")
+    p_deps.add_argument("--index", help="Path to blastradius.json (auto-discovered if omitted)")
     p_deps.add_argument("--json", action="store_true", help="Output raw JSON")
 
     # ── high-blast ─────────────────────────────────────────────────────────
     p_hb = sub.add_parser("high-blast", help="List files above a blast score threshold")
     p_hb.add_argument("--threshold", type=float, default=5.0, help="Minimum blast score (default: 5)")
-    p_hb.add_argument("--index", help="Path to codeindex.json (auto-discovered if omitted)")
+    p_hb.add_argument("--index", help="Path to blastradius.json (auto-discovered if omitted)")
     p_hb.add_argument("--json", action="store_true", help="Output raw JSON")
 
     # ── symbol-blast ──────────────────────────────────────────────────────────
@@ -768,7 +768,7 @@ def _build_parser() -> argparse.ArgumentParser:
     p_sb.add_argument("--json", action="store_true", help="Output raw JSON")
 
     # ── db ─────────────────────────────────────────────────────────────────────
-    p_db = sub.add_parser("db", help="Manage the SQLite store (.codeindex/index.db)")
+    p_db = sub.add_parser("db", help="Manage the SQLite store (.blastradius/index.db)")
     p_db.add_argument("--db", help="Path to index.db (auto-discovered if omitted)")
     p_db.add_argument("--json", action="store_true", help="Output raw JSON (status only)")
     db_sub = p_db.add_subparsers(dest="db_command", required=True)
@@ -824,6 +824,11 @@ def _build_parser() -> argparse.ArgumentParser:
 
 
 def main() -> None:
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    if hasattr(sys.stderr, "reconfigure"):
+        sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+
     parser = _build_parser()
     args = parser.parse_args()
 

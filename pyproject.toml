@@ -3,7 +3,7 @@ requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "codeindex"
+name = "blastradius"
 version = "0.3.6"
 description = "Repo dependency analyzer with blast-radius impact scoring for AI-assisted development"
 readme = "README.md"
@@ -11,7 +11,7 @@ license = { text = "Apache-2.0" }
 requires-python = ">=3.9"
 
 [project.scripts]
-codeindex = "codeindex.cli:main"
+blastradius = "blastradius.cli:main"
 
 [project.optional-dependencies]
 watch    = ["watchdog"]
@@ -25,7 +25,7 @@ testpaths = ["tests"]
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["codeindex*"]
+include = ["blastradius*"]
 
 [tool.setuptools.package-data]
-"codeindex" = ["py.typed"]
+"blastradius" = ["py.typed"]

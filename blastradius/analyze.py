@@ -3,13 +3,13 @@ import json
 import sys
 from pathlib import Path
 
-from codeindex.analyzers import (
+from blastradius.analyzers import (
     python_analyzer, js_analyzer, css_analyzer, go_analyzer,
     ruby_analyzer, rust_analyzer, java_analyzer, php_analyzer,
     docker_analyzer, ci_analyzer, schema_analyzer, terraform_analyzer,
 )
-from codeindex.analyzers.cross_lang_analyzer import find_api_boundaries
-from codeindex.analyzers.monorepo_analyzer import detect_workspaces, assign_packages
+from blastradius.analyzers.cross_lang_analyzer import find_api_boundaries
+from blastradius.analyzers.monorepo_analyzer import detect_workspaces, assign_packages
 
 _SKIP = {
     "__pycache__", ".venv", "venv", "env", ".git",

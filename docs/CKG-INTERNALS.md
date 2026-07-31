@@ -1,4 +1,4 @@
-# CKG-INTERNALS: codeindex Internal Architecture
+# CKG-INTERNALS: blastradius Internal Architecture
 
 | | |
 |---|---|
@@ -14,7 +14,7 @@ Produced per Phase 0 of CKG-DESIGN-001. Documents current module structure, data
 ## 1. Module Map
 
 ```
-codeindex/
+blastradius/
   __init__.py              — package metadata; version "0.1.0"
   cli.py                   — argparse CLI; 8 commands; dispatch table at line 353
   index.py                 — build() orchestrator; load() reader; find_index() discovery
@@ -115,10 +115,10 @@ def build(repo_path, output):
     enrich_links(data["nodes"], data["links"])        # impact.py:81–99 — adds imports/imported_by
     data["meta"]["indexed"] = True
     dest = output or (root / INDEX_FILENAME)
-    dest.write_text(json.dumps(data, indent=2))      # writes codeindex.json
+    dest.write_text(json.dumps(data, indent=2))      # writes blastradius.json
 ```
 
-`INDEX_FILENAME = "codeindex.json"` (index.py top).
+`INDEX_FILENAME = "blastradius.json"` (index.py top).
 
 ---
 
@@ -148,7 +148,7 @@ Result keyed by node ID:
 
 ## 5. JSON Output
 
-### 5.1 `codeindex.json` — written by `index.py:25`
+### 5.1 `blastradius.json` — written by `index.py:25`
 
 ```json
 {
@@ -186,7 +186,7 @@ Result keyed by node ID:
 
 ```json
 {
-  "meta": {"generated": "2026-06-07", "repo": "codeindex/", "total_symbols": 156},
+  "meta": {"generated": "2026-06-07", "repo": "blastradius/", "total_symbols": 156},
   "symbols": {
     "MyClass": [{"file": "src/main.py", "line": 42, "kind": "class", "exported": true, "methods": ["run"]}]
   },
@@ -201,7 +201,7 @@ Result keyed by node ID:
 | Function | Location | Purpose |
 |---|---|---|
 | `write_standalone()` | `symbols.py:77–85` | Writes `symbolindex.json` |
-| `write_inline()` | `symbols.py:88–114` | Merges symbol data into `codeindex.json` nodes |
+| `write_inline()` | `symbols.py:88–114` | Merges symbol data into `blastradius.json` nodes |
 | `write_claude_md()` | `symbols.py:146–171` | Upserts a symbol section into `CLAUDE.md` |
 
 ---
@@ -261,7 +261,7 @@ Protocol: JSON-RPC 2.0 over stdio. Entry: `serve()` at line 331.
 | `build_symbol_index` | `_call_build_symbol_index` | `symbols.build_symbol_index()` |
 
 **Key helpers**:
-- `_resolve_index()` (line 127) — loads `codeindex.json`; auto-discovers by walking up from cwd
+- `_resolve_index()` (line 127) — loads `blastradius.json`; auto-discovers by walking up from cwd
 - `_resolve_file_id()` (line 138) — fuzzy-matches a path to a node ID by suffix
 - `_handle()` (line 284) — routes JSON-RPC method → handler
 
@@ -274,7 +274,7 @@ HTTP server using stdlib `http.server`. Routes:
 | Route | Handler | Response |
 |---|---|---|
 | `/`, `/index.html` | `do_GET` (line 53) | Serves `viz/explorer.html` |
-| `/graph` | `do_GET` (line 60) | Serves `codeindex.json` as JSON |
+| `/graph` | `do_GET` (line 60) | Serves `blastradius.json` as JSON |
 | `/refresh` | `do_GET` (line 65) | Calls `_run_analysis()` → `index.build()` |
 
 Watch mode (`viz_server.py:73–109`): watchdog observer + 1 s debounce timer triggers `_run_analysis()` on file changes.
@@ -344,7 +344,7 @@ cli.py main()
             ├─ enrich_nodes()                   ← mutate nodes with blast fields
             ├─ enrich_links()                   ← add imports/imported_by to nodes
             │                                   ← SEAM A: upsert to SQLite here
-            └─ write codeindex.json
+            └─ write blastradius.json
 
 cli.py / mcp_server.py (query commands)
   └─ index.load(path)                           ← SEAM B: replace with DB read

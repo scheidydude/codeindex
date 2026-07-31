@@ -2,6 +2,6 @@
 # Licensed under the Apache License, Version 2.0
 from __future__ import annotations
 
-from codeindex.temporal.history import backfill
+from blastradius.temporal.history import backfill
 
 __all__ = ["backfill"]

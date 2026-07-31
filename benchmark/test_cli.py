@@ -3,9 +3,9 @@
 CLI integration tests for: lookup, dependencies, high-blast.
 
 Usage:
-  python benchmark/test_cli.py [--repo PATH] [--codeindex PATH]
+  python benchmark/test_cli.py [--repo PATH] [--blastradius PATH]
 
-Reads codeindex.json and symbolindex.json from --repo to build fixtures,
+Reads blastradius.json and symbolindex.json from --repo to build fixtures,
 then invokes the CLI as a subprocess and validates stdout/exit codes.
 """
 from __future__ import annotations
@@ -170,27 +170,39 @@ def test_high_blast(exe: str, repo: str, r: Results, index_path: str) -> None:
 # Entry point
 # ---------------------------------------------------------------------------
 def main() -> None:
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    if hasattr(sys.stderr, "reconfigure"):
+        sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+
     import argparse
     parser = argparse.ArgumentParser(description="CLI integration tests: lookup, dependencies, high-blast")
     parser.add_argument("--repo", default=".", help="Repo path (default: .)")
-    parser.add_argument("--codeindex", default="codeindex", help="Path to codeindex executable (default: codeindex)")
+    parser.add_argument("--blastradius", default="blastradius", help="Path to blastradius executable (default: blastradius)")
     args = parser.parse_args()
 
     repo = str(Path(args.repo).resolve())
-    exe = args.codeindex
+    exe = args.blastradius
 
     print(f"Repo     : {repo}")
     print(f"Command  : {exe}")
 
-    index_path = str(Path(repo) / "codeindex.json")
+    index_path = str(Path(repo) / "blastradius.json")
     sym_path   = str(Path(repo) / "symbolindex.json")
 
     if not Path(index_path).exists():
-        print(f"ERROR: {index_path} not found. Run: codeindex analyze {repo}", file=sys.stderr)
-        sys.exit(1)
+        print(f"Building index: {exe} analyze {repo}")
+        rc, out, err = run([exe, "analyze", repo], repo)
+        if rc != 0 or not Path(index_path).exists():
+            print(f"ERROR: Failed to build {index_path}.\n{err}", file=sys.stderr)
+            sys.exit(1)
+
     if not Path(sym_path).exists():
-        print(f"ERROR: {sym_path} not found. Run: codeindex symbols {repo}", file=sys.stderr)
-        sys.exit(1)
+        print(f"Building symbol index: {exe} symbols {repo}")
+        rc, out, err = run([exe, "symbols", repo], repo)
+        if rc != 0 or not Path(sym_path).exists():
+            print(f"ERROR: Failed to build {sym_path}.\n{err}", file=sys.stderr)
+            sys.exit(1)
 
     # Pick probe fixtures from actual index data
     index_data = json.loads(Path(index_path).read_text())
@@ -206,7 +218,7 @@ def main() -> None:
     # Probe symbol: first symbol in index
     symbols = sym_data.get("symbols", {})
     if not symbols:
-        print("ERROR: symbolindex.json has no symbols. Run: codeindex symbols {repo}", file=sys.stderr)
+        print("ERROR: symbolindex.json has no symbols. Run: blastradius symbols {repo}", file=sys.stderr)
         sys.exit(1)
     sym_name, sym_matches = next(iter(symbols.items()))
     expected_file = Path(sym_matches[0]["file"]).name

@@ -5,21 +5,21 @@ import stat
 import sys
 from pathlib import Path
 
-HOOK_MARKER = "# codeindex-hook"
+HOOK_MARKER = "# blastradius-hook"
 
 HOOK_TEMPLATE = """\
 #!/usr/bin/env bash
 {marker}
-# Installed by codeindex. Remove this file or run `codeindex install-hook --remove` to disable.
+# Installed by blastradius. Remove this file or run `blastradius install-hook --remove` to disable.
 
 THRESHOLD={threshold}
 STRICT={strict}
 
-# Find codeindex.json by walking up from repo root
-INDEX=$(git rev-parse --show-toplevel)/codeindex.json
+# Find blastradius.json by walking up from repo root
+INDEX=$(git rev-parse --show-toplevel)/blastradius.json
 
 if [ ! -f "$INDEX" ]; then
-  echo "[codeindex] No codeindex.json found — skipping impact check. Run: codeindex analyze ."
+  echo "[blastradius] No blastradius.json found — skipping impact check. Run: blastradius analyze ."
   exit 0
 fi
 
@@ -33,14 +33,14 @@ fi
 WARNED=0
 while IFS= read -r FILE; do
   if [ -z "$FILE" ]; then continue; fi
-  OUTPUT=$(codeindex impact "$FILE" --index "$INDEX" 2>/dev/null)
+  OUTPUT=$(blastradius impact "$FILE" --index "$INDEX" 2>/dev/null)
   if [ $? -ne 0 ]; then continue; fi
   SCORE=$(echo "$OUTPUT" | grep -oP 'Blast Score: \\K[0-9.]+')
   if [ -z "$SCORE" ]; then continue; fi
   SCORE_INT=$(echo "$SCORE" | cut -d. -f1)
   if [ "$SCORE_INT" -ge "$THRESHOLD" ] 2>/dev/null; then
     echo ""
-    echo "[codeindex] HIGH BLAST RADIUS: $FILE (score: $SCORE)"
+    echo "[blastradius] HIGH BLAST RADIUS: $FILE (score: $SCORE)"
     echo "$OUTPUT"
     echo ""
     WARNED=1
@@ -48,7 +48,7 @@ while IFS= read -r FILE; do
 done <<< "$STAGED"
 
 if [ "$WARNED" -eq 1 ] && [ "$STRICT" = "1" ]; then
-  echo "[codeindex] Commit blocked (--strict mode). Review impact above."
+  echo "[blastradius] Commit blocked (--strict mode). Review impact above."
   exit 1
 fi
 
@@ -70,9 +70,9 @@ def install(repo_path: str, threshold: int = 10, strict: bool = False, remove: b
             content = hook_path.read_text()
             if HOOK_MARKER in content:
                 hook_path.unlink()
-                print(f"Removed codeindex pre-commit hook from {hook_path}")
+                print(f"Removed blastradius pre-commit hook from {hook_path}")
             else:
-                print("Pre-commit hook exists but was not installed by codeindex — not removing.")
+                print("Pre-commit hook exists but was not installed by blastradius — not removing.")
         else:
             print("No pre-commit hook found.")
         return
@@ -81,7 +81,7 @@ def install(repo_path: str, threshold: int = 10, strict: bool = False, remove: b
         content = hook_path.read_text()
         if HOOK_MARKER not in content:
             print(
-                f"A pre-commit hook already exists at {hook_path} and was not installed by codeindex.\n"
+                f"A pre-commit hook already exists at {hook_path} and was not installed by blastradius.\n"
                 "Add the following manually or use a hook manager (husky, pre-commit, lefthook).",
                 file=sys.stderr,
             )
@@ -99,7 +99,7 @@ def install(repo_path: str, threshold: int = 10, strict: bool = False, remove: b
 
     mode = "strict (blocks commit)" if strict else "warn-only"
     print(
-        f"Installed codeindex pre-commit hook → {hook_path}\n"
+        f"Installed blastradius pre-commit hook → {hook_path}\n"
         f"  threshold: {threshold}  mode: {mode}\n"
-        "Run `codeindex install-hook --remove` to uninstall."
+        "Run `blastradius install-hook --remove` to uninstall."
     )

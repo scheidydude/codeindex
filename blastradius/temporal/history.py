@@ -2,7 +2,7 @@
 # Licensed under the Apache License, Version 2.0
 """Git history backfill via plumbing — never touches the working tree.
 
-Dependency rule: must not import from codeindex.graph or codeindex.semantic.
+Dependency rule: must not import from blastradius.graph or blastradius.semantic.
 """
 from __future__ import annotations
 
@@ -221,7 +221,7 @@ def _is_parseable(rel_path: str) -> bool:
 
 def backfill(
     root: Path,
-    store: object,  # codeindex.store.Store — avoid circular import
+    store: object,  # blastradius.store.Store — avoid circular import
     since: str | None = None,
     max_commits: int | None = 1000,
 ) -> tuple[int, int]:

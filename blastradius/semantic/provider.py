@@ -2,8 +2,8 @@
 # Licensed under the Apache License, Version 2.0
 """Embedding provider interface and OpenAI-compatible HTTP client.
 
-Dependency rule: this module must not import from codeindex.store, codeindex.graph,
-or any other codeindex layer.  It is a pure provider abstraction.
+Dependency rule: this module must not import from blastradius.store, blastradius.graph,
+or any other blastradius layer.  It is a pure provider abstraction.
 """
 from __future__ import annotations
 

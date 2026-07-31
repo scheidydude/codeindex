@@ -1,10 +1,10 @@
-# codeindex → Temporal Code Knowledge Graph
+# blastradius → Temporal Code Knowledge Graph
 
 | | |
 |---|---|
 | **Doc ID** | CKG-DESIGN-001 |
 | **Status** | Draft — ready for implementation |
-| **Target repo** | `scheidydude/codeindex` |
+| **Target repo** | `scheidydude/blastradius` |
 | **Audience** | Claude Code (implementing agent) + maintainer |
 | **License constraint** | Apache 2.0 (preserve existing headers) |
 
@@ -15,7 +15,7 @@
 
 ## 1. Problem statement
 
-`codeindex` today is a **stateless, point-in-time, exact-match** dependency and symbol analyzer. It parses a repo, computes a dependency graph with blast-radius scores plus a symbol map, and writes `codeindex.json` / `symbolindex.json`. That design is excellent for a one-shot snapshot but blocks three capabilities needed to serve as a durable knowledge graph for AI agents:
+`blastradius` today is a **stateless, point-in-time, exact-match** dependency and symbol analyzer. It parses a repo, computes a dependency graph with blast-radius scores plus a symbol map, and writes `blastradius.json` / `symbolindex.json`. That design is excellent for a one-shot snapshot but blocks three capabilities needed to serve as a durable knowledge graph for AI agents:
 
 1. **Stateless.** Every run recomputes the entire index from scratch. There is no persistent store, no incremental update, and no cheap repeated querying. This does not scale to an always-on agent asking many questions, or to large repos.
 2. **Atemporal.** The graph only ever represents *now*. It cannot answer how structure evolved — when a dependency was introduced, what the blast radius of a file was at a past release, or which files churn most — which is core to real impact analysis and code archaeology.
@@ -23,7 +23,7 @@
 
 ## 2. Goal
 
-Evolve `codeindex` into a **self-hosted, local-first temporal code knowledge graph with hybrid retrieval** — conceptually "Graphiti applied to code instead of conversations" — while preserving everything that makes the current tool good: deterministic AST extraction, near-zero-friction install, and the existing CLI / JSON / MCP / viz surfaces.
+Evolve `blastradius` into a **self-hosted, local-first temporal code knowledge graph with hybrid retrieval** — conceptually "Graphiti applied to code instead of conversations" — while preserving everything that makes the current tool good: deterministic AST extraction, near-zero-friction install, and the existing CLI / JSON / MCP / viz surfaces.
 
 The end state adds three properties to the existing graph: **persistence + incrementality**, **time**, and **meaning (semantic retrieval)**.
 
@@ -31,10 +31,10 @@ The end state adds three properties to the existing graph: **persistence + incre
 
 These are out of scope. Do not implement them, and do not refactor toward them.
 
-- **Not conversational / agent memory.** This project does not store user preferences, chat history, or "who the user is." That is a separate concern that belongs in a downstream memory layer. `codeindex` is a *code-context provider*, not a personal-memory store. Keep the two truth models separate (deterministic code facts vs. probabilistic conversational facts).
+- **Not conversational / agent memory.** This project does not store user preferences, chat history, or "who the user is." That is a separate concern that belongs in a downstream memory layer. `blastradius` is a *code-context provider*, not a personal-memory store. Keep the two truth models separate (deterministic code facts vs. probabilistic conversational facts).
 - **Not LLM-based extraction.** Do not replace deterministic AST/regex extraction with an LLM. The deterministic model is a reliability advantage and must remain the source of graph structure. LLMs/embeddings are used *only* for the semantic retrieval layer, never to infer edges or symbols.
 - **Not a server-based graph database.** No Neo4j, FalkorDB, or any external graph service. The store stays embedded.
-- **No breaking changes to the public contract.** The `codeindex.json` / `symbolindex.json` schemas and existing CLI commands must keep working unchanged.
+- **No breaking changes to the public contract.** The `blastradius.json` / `symbolindex.json` schemas and existing CLI commands must keep working unchanged.
 - **No cloud dependency.** Embeddings must be obtainable from a local/self-hosted endpoint. Nothing leaves the machine by default.
 
 ## 4. Architecture overview
@@ -69,10 +69,10 @@ The migration is deliberately layered so each layer is shippable on its own:
 
 ### 4.1 Package layout & extraction boundary
 
-This work ships as a **feature release on the existing `codeindex` repo**, *not* a fork and *not* (yet) a separate project. But it is laid out so the heavy layer can be extracted into its own package later with a clean lift, if it grows an independent identity. To keep that door open, the codebase is partitioned into a **lean core** and **optional layers**, and the dependency direction is strictly one-way.
+This work ships as a **feature release on the existing `blastradius` repo**, *not* a fork and *not* (yet) a separate project. But it is laid out so the heavy layer can be extracted into its own package later with a clean lift, if it grows an independent identity. To keep that door open, the codebase is partitioned into a **lean core** and **optional layers**, and the dependency direction is strictly one-way.
 
 ```
-codeindex/
+blastradius/
   core/        # deterministic parsers, blast scoring — the lean primitive
   store/       # SQLite store + incremental indexing      (core dependency-free)
   temporal/    # commit stamping + git-history ingestion   (core dependency-free)
@@ -83,19 +83,19 @@ codeindex/
 **Hard partitioning rules:**
 
 - `core/`, `store/`, and `temporal/` **must not import** from `graph/` or `semantic/`. The dependency arrow points only *up*, from the heavy layers down into the core — never the reverse. This is what makes a future extraction a move, not a rewrite.
-- `graph/` and `semantic/` are gated behind optional extras (`codeindex[graph]`, `codeindex[semantic]`). The default `pip install codeindex` installs only the lean core + store + temporal and pulls in **no** new runtime dependencies.
-- The heavy layers consume the core through its public store/graph API only — never by reaching into core internals — so that when `graph/`+`semantic/` are lifted into a standalone package, the only change is declaring `codeindex` as a dependency.
+- `graph/` and `semantic/` are gated behind optional extras (`blastradius[graph]`, `blastradius[semantic]`). The default `pip install blastradius` installs only the lean core + store + temporal and pulls in **no** new runtime dependencies.
+- The heavy layers consume the core through its public store/graph API only — never by reaching into core internals — so that when `graph/`+`semantic/` are lifted into a standalone package, the only change is declaring `blastradius` as a dependency.
 
 ## 5. Data model
 
-The canonical store becomes a single SQLite database (default: `<repo>/.codeindex/index.db`). `codeindex.json` / `symbolindex.json` become **exports** (a view rendered from the DB), preserving the current public schema exactly.
+The canonical store becomes a single SQLite database (default: `<repo>/.blastradius/index.db`). `blastradius.json` / `symbolindex.json` become **exports** (a view rendered from the DB), preserving the current public schema exactly.
 
 ### 5.1 Temporal model
 
 Bi-temporal, kept simple:
 
 - **Commit time** — where a fact lives in git history. Every node/edge/symbol carries `first_seen_commit` and `last_seen_commit` (nullable; `NULL` last-seen = still present at HEAD).
-- **Index time** — when `codeindex` observed the fact (`first_seen_at`, `last_seen_at`, ISO-8601).
+- **Index time** — when `blastradius` observed the fact (`first_seen_at`, `last_seen_at`, ISO-8601).
 
 Facts are **never hard-deleted**. When a file/edge/symbol disappears, set its `last_seen_commit` and `last_seen_at` and flag it inactive. This is what enables "as-of" queries and churn analysis.
 
@@ -190,8 +190,8 @@ Bump `schema_version` and ship a forward migration whenever this changes.
 
 ## 6. Component design
 
-### 6.1 Storage layer (`codeindex/store/`)
-A thin module wrapping the SQLite connection: schema creation, versioned migrations, upsert/close helpers for files/edges/symbols, and JSON export that reproduces the current `codeindex.json` / `symbolindex.json` byte-for-byte (golden-tested). The store is the new source of truth; everything else reads/writes through it.
+### 6.1 Storage layer (`blastradius/store/`)
+A thin module wrapping the SQLite connection: schema creation, versioned migrations, upsert/close helpers for files/edges/symbols, and JSON export that reproduces the current `blastradius.json` / `symbolindex.json` byte-for-byte (golden-tested). The store is the new source of truth; everything else reads/writes through it.
 
 ### 6.2 Incremental indexer
 Replaces full recompute. Algorithm:
@@ -206,7 +206,7 @@ Replaces full recompute. Algorithm:
 6. Refresh FTS rows for changed symbols. (Embeddings handled in Phase 3.)
 7. Update `index_meta.last_indexed_commit` and export JSON.
 
-### 6.3 Temporal ingestion (`codeindex history`)
+### 6.3 Temporal ingestion (`blastradius history`)
 Backfills the temporal graph from git history **without checkouts**, to keep it safe and fast:
 
 - Walk `git log` oldest→newest within bounds (`--since`, `--max-commits`).
@@ -218,8 +218,8 @@ This is the most performance-sensitive component — see Risks. Default to **bou
 
 ### 6.4 Semantic layer (Phase 3)
 - **What gets embedded:** per symbol, the concatenation of `name + signature + doc` (skip empties).
-- **Embedding provider interface** (`codeindex/semantic/`): a small abstraction with one shipped implementation — an **OpenAI-compatible `/v1/embeddings` HTTP client** built on stdlib `urllib` (no new dependency for the client itself). Endpoint URL, model name, and dimensions come from config/env. This targets a self-hosted local inference server out of the box.
-- **Vector store:** `sqlite-vec` `vec0` virtual table. This is the single new optional dependency, gated behind the `codeindex[semantic]` extra. If the extension can't load, semantic features degrade gracefully (log a clear message, fall back to FTS + exact) — they never hard-fail the tool.
+- **Embedding provider interface** (`blastradius/semantic/`): a small abstraction with one shipped implementation — an **OpenAI-compatible `/v1/embeddings` HTTP client** built on stdlib `urllib` (no new dependency for the client itself). Endpoint URL, model name, and dimensions come from config/env. This targets a self-hosted local inference server out of the box.
+- **Vector store:** `sqlite-vec` `vec0` virtual table. This is the single new optional dependency, gated behind the `blastradius[semantic]` extra. If the extension can't load, semantic features degrade gracefully (log a clear message, fall back to FTS + exact) — they never hard-fail the tool.
 - Embeddings are (re)generated only for new/changed symbols during indexing, batched.
 
 ### 6.5 Hybrid query engine
@@ -237,12 +237,12 @@ Combine the ranked lists with **Reciprocal Rank Fusion** (`score = Σ 1/(60 + ra
 ### 7.1 CLI (additions; existing commands unchanged)
 | Command | Purpose |
 |---|---|
-| `codeindex analyze` | Existing — now incremental, writes to SQLite, still exports `codeindex.json` |
-| `codeindex history [--since REF] [--max-commits N]` | Backfill the temporal graph from git history |
-| `codeindex search "<query>" [--k N] [--as-of REF] [--json]` | Hybrid semantic + keyword + graph search |
-| `codeindex impact FILE [--as-of REF]` | Existing — gains optional point-in-time blast radius |
-| `codeindex db status` | Show schema version, last indexed commit, counts, embedding config |
-| `codeindex db migrate` | Apply pending schema migrations |
+| `blastradius analyze` | Existing — now incremental, writes to SQLite, still exports `blastradius.json` |
+| `blastradius history [--since REF] [--max-commits N]` | Backfill the temporal graph from git history |
+| `blastradius search "<query>" [--k N] [--as-of REF] [--json]` | Hybrid semantic + keyword + graph search |
+| `blastradius impact FILE [--as-of REF]` | Existing — gains optional point-in-time blast radius |
+| `blastradius db status` | Show schema version, last indexed commit, counts, embedding config |
+| `blastradius db migrate` | Apply pending schema migrations |
 
 ### 7.2 MCP tools (additions; existing four unchanged)
 | Tool | Description |
@@ -253,29 +253,29 @@ Combine the ranked lists with **Reciprocal Rank Fusion** (`score = Σ 1/(60 + ra
 | `changed_since` | `ref` → files/edges/symbols added or removed since a ref |
 
 ### 7.3 Configuration
-Read from `[tool.codeindex]` in `pyproject.toml` and/or `.codeindex.toml`, env vars override. Keys: `db_path`, `embedding_endpoint`, `embedding_model`, `embedding_dims`, `history_max_commits`. All have safe defaults; semantic config is optional.
+Read from `[tool.blastradius]` in `pyproject.toml` and/or `.blastradius.toml`, env vars override. Keys: `db_path`, `embedding_endpoint`, `embedding_model`, `embedding_dims`, `history_max_commits`. All have safe defaults; semantic config is optional.
 
 ## 8. Implementation phases
 
 > Each phase ends with: all existing tests green, new tests added, acceptance checks passing, a commit. Keep the core dependency-free; every new dependency is an optional extra.
 
 ### Phase 0 — Orient (no behavior change)
-- Read the existing package layout under `codeindex/` and `viz/`. Produce `docs/CKG-INTERNALS.md`: current module map, where parsing happens, where JSON is written, how the MCP server and CLI dispatch are wired.
+- Read the existing package layout under `blastradius/` and `viz/`. Produce `docs/CKG-INTERNALS.md`: current module map, where parsing happens, where JSON is written, how the MCP server and CLI dispatch are wired.
 - Identify the integration seams for the new store without changing behavior.
 - **Acceptance:** internals doc committed; no source changes; existing tests still pass.
 
 ### Phase 1 — SQLite store + incremental indexing (no new deps)
-- Implement `codeindex/store/` (schema, migrations, upsert/close, JSON export).
-- Wire `analyze` to populate the DB and export `codeindex.json` / `symbolindex.json` from it.
+- Implement `blastradius/store/` (schema, migrations, upsert/close, JSON export).
+- Wire `analyze` to populate the DB and export `blastradius.json` / `symbolindex.json` from it.
 - Implement incremental change detection (git diff + content-hash fallback) and affected-subgraph blast recompute.
 - Populate `symbols_fts`.
 - **Acceptance:**
   - Exported JSON is byte-identical to pre-change output on a fixture repo (golden test).
   - Re-running `analyze` after editing one file re-parses only that file's change set (assert via instrumentation/log).
-  - `codeindex db status` reports correct counts.
+  - `blastradius db status` reports correct counts.
 
 ### Phase 2 — Temporal layer (no new deps)
-- Implement `codeindex history` via `git ls-tree` + `git cat-file --batch` (no checkouts), bounded by `--since` / `--max-commits`.
+- Implement `blastradius history` via `git ls-tree` + `git cat-file --batch` (no checkouts), bounded by `--since` / `--max-commits`.
 - Maintain `first_seen_commit` / `last_seen_commit` on nodes/edges/symbols; populate `commits`.
 - Add `--as-of` to `impact`; implement `changed_since`.
 - **Acceptance:**
@@ -286,7 +286,7 @@ Read from `[tool.codeindex]` in `pyproject.toml` and/or `.codeindex.toml`, env v
 ### Phase 3 — Semantic layer (optional dep: `sqlite-vec`)
 - Implement the embedding-provider interface + stdlib OpenAI-compatible client.
 - Add `vec_symbols`; embed `name+signature+doc` for new/changed symbols, batched.
-- Implement the hybrid query engine (semantic + FTS + graph, RRF fusion, optional temporal filter) behind `codeindex search`.
+- Implement the hybrid query engine (semantic + FTS + graph, RRF fusion, optional temporal filter) behind `blastradius search`.
 - Graceful degradation when the extension or endpoint is unavailable.
 - **Acceptance:**
   - With a local endpoint configured, `search "validate auth token"` surfaces the auth-validation symbol without its name in the query.
@@ -300,7 +300,7 @@ Read from `[tool.codeindex]` in `pyproject.toml` and/or `.codeindex.toml`, env v
 
 ## 9. Constraints for the implementing agent (hard rules)
 
-1. **Preserve the zero-dependency core.** Phases 0–2 add **no** runtime dependencies. `sqlite-vec` (Phase 3) is the only new dependency and must be an optional extra (`codeindex[semantic]`); the tool must run fully without it.
+1. **Preserve the zero-dependency core.** Phases 0–2 add **no** runtime dependencies. `sqlite-vec` (Phase 3) is the only new dependency and must be an optional extra (`blastradius[semantic]`); the tool must run fully without it.
 2. **Respect the partitioning and dependency direction (§4.1).** `core/`, `store/`, and `temporal/` must never import from `graph/` or `semantic/`. The heavy layers depend on the core, never the reverse, and consume it only through its public store/graph API. This keeps a future extraction into a standalone package a clean lift. Any change that creates a core→heavy import is a hard failure.
 3. **Do not change the public JSON schema or existing CLI commands.** JSON output stays byte-compatible (golden-tested).
 4. **Deterministic extraction is sacred.** No LLM or heuristic inference of edges/symbols. Embeddings serve retrieval only.
@@ -325,7 +325,7 @@ Read from `[tool.codeindex]` in `pyproject.toml` and/or `.codeindex.toml`, env v
 | `sqlite-vec` extension load fails on a platform | Feature-detect at startup; fall back; document install per OS |
 | Schema evolution breaks existing DBs | Versioned migrations + `schema_version` in `index_meta`; `db migrate` command |
 | Incremental diff misses a change | Content-hash fallback validates against git diff; provide `analyze --full` escape hatch to force a rebuild |
-| Scope creep into conversational memory | Section 3 forbids it; `codeindex` stays a code-context provider only |
+| Scope creep into conversational memory | Section 3 forbids it; `blastradius` stays a code-context provider only |
 
 ## 12. Definition of done
 The project is complete when: `analyze` is incremental and SQLite-backed with byte-identical JSON export; `history` builds a queryable temporal graph; `impact --as-of` and `changed_since` work; `search` performs hybrid retrieval with graceful degradation; all four new MCP tools are registered; the README documents everything; and the full test suite (golden + temporal + retrieval + degradation) passes with the core remaining dependency-free.

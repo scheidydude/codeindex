@@ -65,7 +65,7 @@ def _commit_all(repo: Path, message: str) -> str:
 
 
 def _run_analyze(repo: Path) -> None:
-    import codeindex.index as idx_mod
+    import blastradius.index as idx_mod
     importlib.reload(idx_mod)
     idx_mod.build(str(repo))
 
@@ -92,8 +92,8 @@ except ImportError:
 
 def test_fts_search_returns_results(tmp_path: Path) -> None:
     """fts_search finds symbols by name keyword without any embedding."""
-    from codeindex.index import db_path_for
-    from codeindex.store import Store
+    from blastradius.index import db_path_for
+    from blastradius.store import Store
 
     repo = _make_repo_with_symbols(tmp_path)
     store = Store(db_path_for(repo))
@@ -123,9 +123,9 @@ def test_fts_search_returns_results(tmp_path: Path) -> None:
 
 def test_hybrid_search_stub_provider(tmp_path: Path) -> None:
     """hybrid_search returns results using stub embeddings + FTS, no live endpoint."""
-    from codeindex.index import db_path_for
-    from codeindex.store import Store
-    from codeindex.semantic.search import hybrid_search
+    from blastradius.index import db_path_for
+    from blastradius.store import Store
+    from blastradius.semantic.search import hybrid_search
 
     repo = _make_repo_with_symbols(tmp_path)
     store = Store(db_path_for(repo))
@@ -169,9 +169,9 @@ def test_hybrid_search_stub_provider(tmp_path: Path) -> None:
 
 def test_search_degrades_without_sqlite_vec(tmp_path: Path, capsys) -> None:
     """hybrid_search falls back to FTS+graph and emits notice when vec unavailable."""
-    from codeindex.index import db_path_for
-    from codeindex.store import Store
-    from codeindex.semantic.search import hybrid_search
+    from blastradius.index import db_path_for
+    from blastradius.store import Store
+    from blastradius.semantic.search import hybrid_search
 
     repo = _make_repo_with_symbols(tmp_path)
     store = Store(db_path_for(repo))
@@ -200,10 +200,10 @@ def test_search_degrades_without_sqlite_vec(tmp_path: Path, capsys) -> None:
 
 def test_search_degrades_endpoint_unreachable(tmp_path: Path) -> None:
     """hybrid_search falls back to FTS+graph when embedding endpoint errors."""
-    from codeindex.index import db_path_for
-    from codeindex.store import Store
-    from codeindex.semantic.search import hybrid_search
-    from codeindex.semantic.provider import OpenAIEmbeddingProvider
+    from blastradius.index import db_path_for
+    from blastradius.store import Store
+    from blastradius.semantic.search import hybrid_search
+    from blastradius.semantic.provider import OpenAIEmbeddingProvider
 
     repo = _make_repo_with_symbols(tmp_path)
     store = Store(db_path_for(repo))
@@ -233,8 +233,8 @@ def test_search_degrades_endpoint_unreachable(tmp_path: Path) -> None:
 
 def test_graph_expand(tmp_path: Path) -> None:
     """graph_expand returns symbols from files that import or are imported by given symbols."""
-    from codeindex.index import db_path_for
-    from codeindex.store import Store
+    from blastradius.index import db_path_for
+    from blastradius.store import Store
 
     repo = _make_repo_with_symbols(tmp_path)
     store = Store(db_path_for(repo))
@@ -260,8 +260,8 @@ def test_graph_expand(tmp_path: Path) -> None:
 
 def test_get_symbol_metadata(tmp_path: Path) -> None:
     """get_symbol returns name, file, kind, and other expected fields."""
-    from codeindex.index import db_path_for
-    from codeindex.store import Store
+    from blastradius.index import db_path_for
+    from blastradius.store import Store
 
     repo = _make_repo_with_symbols(tmp_path)
     store = Store(db_path_for(repo))
@@ -285,9 +285,9 @@ def test_get_symbol_metadata(tmp_path: Path) -> None:
 
 def test_schema_version_is_current(tmp_path: Path) -> None:
     """Opening a fresh store sets schema_version to the current version."""
-    from codeindex.store import Store, SCHEMA_VERSION
+    from blastradius.store import Store, SCHEMA_VERSION
 
-    db_path = tmp_path / ".codeindex" / "index.db"
+    db_path = tmp_path / ".blastradius" / "index.db"
     store = Store(db_path)
     version = store.get_meta("schema_version")
     store.close()

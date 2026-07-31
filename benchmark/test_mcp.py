@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 """
-MCP server integration test — exercises all 6 tools via real JSON-RPC stdio.
+MCP server integration test — exercises all tools via real JSON-RPC stdio.
 
 Usage:
-  python benchmark/test_mcp.py [--repo PATH] [--codeindex PATH]
+  python benchmark/test_mcp.py [--repo PATH] [--blastradius PATH]
 
 Starts the MCP server as a subprocess, sends JSON-RPC messages, validates responses.
-All 6 tools tested: analyze_repo, get_impact, get_dependencies,
+All tools tested: analyze_repo, get_impact, get_dependencies,
 get_high_blast_files, build_symbol_index, lookup_symbol.
 """
 from __future__ import annotations
@@ -252,18 +252,23 @@ def test_unknown_tool(client: MCPClient, r: Results) -> None:
 # Entry point
 # ---------------------------------------------------------------------------
 def main() -> None:
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    if hasattr(sys.stderr, "reconfigure"):
+        sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+
     import argparse
     parser = argparse.ArgumentParser(description="MCP server integration tests")
     parser.add_argument("--repo", default=".", help="Repo path (default: .)")
     parser.add_argument(
-        "--codeindex",
-        default="codeindex",
-        help="Path to codeindex executable (default: codeindex)",
+        "--blastradius",
+        default="blastradius",
+        help="Path to blastradius executable (default: blastradius)",
     )
     args = parser.parse_args()
 
     repo = str(Path(args.repo).resolve())
-    command = [args.codeindex, "serve", "--mcp"]
+    command = [args.blastradius, "serve", "--mcp"]
 
     print(f"Repo     : {repo}")
     print(f"Command  : {' '.join(command)}")
@@ -273,7 +278,7 @@ def main() -> None:
     time.sleep(0.3)  # let server start
 
     # Discover test fixtures from the repo's own indexes
-    index_file = Path(repo) / "codeindex.json"
+    index_file = Path(repo) / "blastradius.json"
     sym_file   = Path(repo) / "symbolindex.json"
 
     probe_file = "."

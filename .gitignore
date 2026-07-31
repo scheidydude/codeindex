@@ -1,9 +1,8 @@
 # Generated artifacts
-codeindex.json
+blastradius.json
 symbolindex.json
 repo_graph.json
-symbolindex.json
-.codeindex/
+.blastradius/
 benchmark/results.json
 
 # Claude Code

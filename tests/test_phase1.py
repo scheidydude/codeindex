@@ -7,7 +7,7 @@ Acceptance criteria (from CKG-DESIGN-001):
      repo (golden test).
   2. Re-running analyze after editing one file logs only that file's change
      set (incremental detection test).
-  3. `codeindex db status` reports correct counts.
+  3. `blastradius db status` reports correct counts.
 """
 from __future__ import annotations
 
@@ -41,10 +41,10 @@ def _init_git(repo: Path) -> str:
 
 
 def _run_analyze(repo: Path) -> dict:
-    """Run codeindex.index.build() and return the parsed JSON output."""
+    """Run blastradius.index.build() and return the parsed JSON output."""
     # Import here so we get the Phase-1 version, not a cached import
     import importlib
-    import codeindex.index as idx_mod
+    import blastradius.index as idx_mod
     importlib.reload(idx_mod)
 
     data = idx_mod.build(str(repo))
@@ -87,8 +87,8 @@ def test_golden_idempotent(tmp_path: Path) -> None:
 
 def test_db_populated(tmp_path: Path) -> None:
     """After analyze(), the SQLite store contains the expected file rows."""
-    from codeindex.store import Store
-    from codeindex.index import db_path_for
+    from blastradius.store import Store
+    from blastradius.index import db_path_for
 
     repo = tmp_path / "repo"
     shutil.copytree(FIXTURE_SRC, repo)
@@ -97,7 +97,7 @@ def test_db_populated(tmp_path: Path) -> None:
     data = _run_analyze(repo)
 
     db_path = db_path_for(repo)
-    assert db_path.exists(), ".codeindex/index.db not created"
+    assert db_path.exists(), ".blastradius/index.db not created"
 
     store = Store(db_path)
     status = store.status()
@@ -147,8 +147,8 @@ def test_incremental_detection(tmp_path: Path, capsys: pytest.CaptureFixture) ->
 
 def test_db_status_counts(tmp_path: Path) -> None:
     """store.status() counts match the number of nodes analyze() produced."""
-    from codeindex.store import Store
-    from codeindex.index import db_path_for
+    from blastradius.store import Store
+    from blastradius.index import db_path_for
 
     repo = tmp_path / "repo"
     shutil.copytree(FIXTURE_SRC, repo)
@@ -172,8 +172,8 @@ def test_db_status_counts(tmp_path: Path) -> None:
 
 def test_soft_delete_on_removal(tmp_path: Path) -> None:
     """Removing a file marks its DB row inactive, not deleted."""
-    from codeindex.store import Store
-    from codeindex.index import db_path_for
+    from blastradius.store import Store
+    from blastradius.index import db_path_for
 
     repo = tmp_path / "repo"
     shutil.copytree(FIXTURE_SRC, repo)

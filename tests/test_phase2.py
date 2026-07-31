@@ -46,7 +46,7 @@ def _commit_all(repo: Path, message: str) -> str:
 
 def _run_analyze(repo: Path) -> None:
     import importlib
-    import codeindex.index as idx_mod
+    import blastradius.index as idx_mod
     importlib.reload(idx_mod)
     idx_mod.build(str(repo))
 
@@ -86,8 +86,8 @@ def _make_temporal_repo(tmp_path: Path) -> tuple[Path, str, str, str]:
 
 def test_as_of_impact_differs_from_head(tmp_path: Path) -> None:
     """impact B --as-of C2 shows A as dependent; impact B at HEAD does not."""
-    from codeindex.store import Store
-    from codeindex.index import db_path_for, git_reachable, git_resolve
+    from blastradius.store import Store
+    from blastradius.index import db_path_for, git_reachable, git_resolve
 
     repo, c1, c2, c3 = _make_temporal_repo(tmp_path)
     db_path = db_path_for(repo)
@@ -119,8 +119,8 @@ def test_as_of_impact_differs_from_head(tmp_path: Path) -> None:
 
 def test_changed_since_edges(tmp_path: Path) -> None:
     """changed_since(reachable_C1) shows added edge at C2 and its removal."""
-    from codeindex.store import Store
-    from codeindex.index import db_path_for, git_reachable
+    from blastradius.store import Store
+    from blastradius.index import db_path_for, git_reachable
 
     repo, c1, c2, c3 = _make_temporal_repo(tmp_path)
     db_path = db_path_for(repo)
@@ -141,10 +141,10 @@ def test_changed_since_edges(tmp_path: Path) -> None:
 # ── Test 3: history backfill populates commits table ─────────────────────────
 
 def test_history_backfill_commits(tmp_path: Path) -> None:
-    """codeindex history populates the commits table."""
-    from codeindex.store import Store
-    from codeindex.index import db_path_for
-    from codeindex.temporal import backfill
+    """blastradius history populates the commits table."""
+    from blastradius.store import Store
+    from blastradius.index import db_path_for
+    from blastradius.temporal import backfill
 
     repo = tmp_path / "hist_repo"
     shutil.copytree(FIXTURE_SRC, repo)
@@ -175,9 +175,9 @@ def test_history_backfill_commits(tmp_path: Path) -> None:
 
 def test_history_backfill_first_seen(tmp_path: Path) -> None:
     """After backfill, files have first_seen_commit set."""
-    from codeindex.store import Store
-    from codeindex.index import db_path_for
-    from codeindex.temporal import backfill
+    from blastradius.store import Store
+    from blastradius.index import db_path_for
+    from blastradius.temporal import backfill
 
     repo = tmp_path / "seen_repo"
     shutil.copytree(FIXTURE_SRC, repo)
@@ -206,9 +206,9 @@ def test_history_backfill_first_seen(tmp_path: Path) -> None:
 
 def test_history_no_working_tree_change(tmp_path: Path) -> None:
     """git status is clean before and after backfill (no checkout side-effects)."""
-    from codeindex.store import Store
-    from codeindex.index import db_path_for
-    from codeindex.temporal import backfill
+    from blastradius.store import Store
+    from blastradius.index import db_path_for
+    from blastradius.temporal import backfill
 
     repo = tmp_path / "clean_repo"
     shutil.copytree(FIXTURE_SRC, repo)
@@ -231,7 +231,7 @@ def test_history_no_working_tree_change(tmp_path: Path) -> None:
             f"Backfill modified working-tree file: {f}"
         )
 
-    # Git status should show clean (only .codeindex/ and generated files differ)
+    # Git status should show clean (only .blastradius/ and generated files differ)
     status = subprocess.run(
         ["git", "status", "--porcelain", "--", "*.py"],
         cwd=repo, capture_output=True, text=True,
@@ -243,8 +243,8 @@ def test_history_no_working_tree_change(tmp_path: Path) -> None:
 
 def test_changed_since_added_file(tmp_path: Path) -> None:
     """changed_since(C1) shows a file added at C2."""
-    from codeindex.store import Store
-    from codeindex.index import db_path_for, git_reachable
+    from blastradius.store import Store
+    from blastradius.index import db_path_for, git_reachable
 
     repo = tmp_path / "addfile_repo"
     shutil.copytree(FIXTURE_SRC, repo)

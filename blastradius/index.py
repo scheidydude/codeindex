@@ -1,9 +1,9 @@
 # Copyright 2026 David Scheiderman
 # Licensed under the Apache License, Version 2.0
-"""Build and persist codeindex.json in the target repo root.
+"""Build and persist blastradius.json in the target repo root.
 
 Phase-1 change: build() now also syncs graph data to a SQLite store at
-<repo>/.codeindex/index.db.  The JSON write path is unchanged so existing
+<repo>/.blastradius/index.db.  The JSON write path is unchanged so existing
 consumers keep working without modification.
 """
 from __future__ import annotations
@@ -14,12 +14,12 @@ import subprocess
 import sys
 from pathlib import Path
 
-from codeindex.analyze import analyze
-from codeindex.impact import compute_blast_radius, enrich_nodes, enrich_links
-from codeindex.store import Store
+from blastradius.analyze import analyze
+from blastradius.impact import compute_blast_radius, enrich_nodes, enrich_links
+from blastradius.store import Store
 
-INDEX_FILENAME = "codeindex.json"
-_DB_DIR = ".codeindex"
+INDEX_FILENAME = "blastradius.json"
+_DB_DIR = ".blastradius"
 _DB_NAME = "index.db"
 
 
@@ -109,13 +109,13 @@ def _content_hash(root: Path, rel_path: str) -> str | None:
 def _embed_new_symbols(store) -> None:
     """Embed symbols that lack a vector entry, if an embedding endpoint is configured.
 
-    Reads CODEINDEX_EMBEDDING_ENDPOINT / _MODEL / _DIMS from env.
+    Reads BLASTRADIUS_EMBEDDING_ENDPOINT / _MODEL / _DIMS from env.
     Silently skips if any required env var is missing or if the call fails.
     """
     import os
-    endpoint = os.environ.get("CODEINDEX_EMBEDDING_ENDPOINT", "")
-    model = os.environ.get("CODEINDEX_EMBEDDING_MODEL", "")
-    dims_str = os.environ.get("CODEINDEX_EMBEDDING_DIMS", "")
+    endpoint = os.environ.get("BLASTRADIUS_EMBEDDING_ENDPOINT", "")
+    model = os.environ.get("BLASTRADIUS_EMBEDDING_MODEL", "")
+    dims_str = os.environ.get("BLASTRADIUS_EMBEDDING_DIMS", "")
     if not (endpoint and model and dims_str):
         return
     try:
@@ -131,7 +131,7 @@ def _embed_new_symbols(store) -> None:
         return
 
     try:
-        from codeindex.semantic.provider import OpenAIEmbeddingProvider
+        from blastradius.semantic.provider import OpenAIEmbeddingProvider
         provider = OpenAIEmbeddingProvider(endpoint=endpoint, model=model, dims=dims)
         ids = [p[0] for p in pairs]
         texts = [p[1] for p in pairs]
@@ -184,7 +184,7 @@ def build(repo_path: str, output: Path | None = None) -> dict:
 
     # Build and sync symbol index
     try:
-        from codeindex.symbols import build_symbol_index
+        from blastradius.symbols import build_symbol_index
         symbol_data = build_symbol_index(str(root))
         store.sync_symbols(symbol_data, commit=head_commit)
     except Exception as exc:
@@ -216,13 +216,13 @@ def build(repo_path: str, output: Path | None = None) -> dict:
 def load(index_path: Path) -> dict:
     if not index_path.exists():
         raise FileNotFoundError(
-            f"{index_path} not found — run: codeindex analyze <repo>"
+            f"{index_path} not found — run: blastradius analyze <repo>"
         )
     return json.loads(index_path.read_text())
 
 
 def find_index(start: Path) -> Path | None:
-    """Walk up from start looking for codeindex.json."""
+    """Walk up from start looking for blastradius.json."""
     current = start.resolve()
     for _ in range(10):
         candidate = current / INDEX_FILENAME
@@ -236,7 +236,7 @@ def find_index(start: Path) -> Path | None:
 
 
 def find_db(start: Path) -> Path | None:
-    """Walk up from start looking for .codeindex/index.db."""
+    """Walk up from start looking for .blastradius/index.db."""
     current = start.resolve()
     for _ in range(10):
         candidate = current / _DB_DIR / _DB_NAME

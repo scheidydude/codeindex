@@ -1,21 +1,21 @@
 # Copyright 2026 David Scheiderman
 # Licensed under the Apache License, Version 2.0
-"""Stdio MCP server — exposes codeindex tools to Claude and other MCP clients."""
+"""Stdio MCP server — exposes blastradius tools to Claude and other MCP clients."""
 from __future__ import annotations
 import json
 import sys
 from pathlib import Path
 
-from codeindex.index import build, load, find_index, find_db, INDEX_FILENAME
-from codeindex.index import git_reachable, git_resolve, git_modified
-from codeindex.impact import compute_blast_radius
-from codeindex.reporter import format_markdown
-from codeindex.symbols import SYMBOL_INDEX_FILENAME
+from blastradius.index import build, load, find_index, find_db, INDEX_FILENAME
+from blastradius.index import git_reachable, git_resolve, git_modified
+from blastradius.impact import compute_blast_radius
+from blastradius.reporter import format_markdown
+from blastradius.symbols import SYMBOL_INDEX_FILENAME
 
 TOOLS = [
     {
         "name": "analyze_repo",
-        "description": "Analyze a repository and build/refresh its codeindex.json dependency index.",
+        "description": "Analyze a repository and build/refresh its blastradius.json dependency index.",
         "inputSchema": {
             "type": "object",
             "properties": {
@@ -43,7 +43,7 @@ TOOLS = [
                 },
                 "index_path": {
                     "type": "string",
-                    "description": "Path to codeindex.json. Auto-discovered if omitted.",
+                    "description": "Path to blastradius.json. Auto-discovered if omitted.",
                 },
             },
             "required": ["file_path"],
@@ -61,7 +61,7 @@ TOOLS = [
                 },
                 "index_path": {
                     "type": "string",
-                    "description": "Path to codeindex.json. Auto-discovered if omitted.",
+                    "description": "Path to blastradius.json. Auto-discovered if omitted.",
                 },
             },
             "required": ["file_path"],
@@ -79,7 +79,7 @@ TOOLS = [
                 },
                 "index_path": {
                     "type": "string",
-                    "description": "Path to codeindex.json. Auto-discovered if omitted.",
+                    "description": "Path to blastradius.json. Auto-discovered if omitted.",
                 },
             },
         },
@@ -150,7 +150,7 @@ TOOLS = [
                 },
                 "db_path": {
                     "type": "string",
-                    "description": "Path to .codeindex/index.db. Auto-discovered from cwd if omitted.",
+                    "description": "Path to .blastradius/index.db. Auto-discovered from cwd if omitted.",
                 },
             },
             "required": ["query"],
@@ -161,8 +161,8 @@ TOOLS = [
         "description": (
             "Compute blast-radius impact for a file at a historical commit/ref. "
             "Shows which files depended on it at that point in time, not just at HEAD. "
-            "Requires codeindex analyze to have been run at (or near) the target commit, "
-            "or codeindex history to have backfilled temporal data."
+            "Requires blastradius analyze to have been run at (or near) the target commit, "
+            "or blastradius history to have backfilled temporal data."
         ),
         "inputSchema": {
             "type": "object",
@@ -177,7 +177,7 @@ TOOLS = [
                 },
                 "db_path": {
                     "type": "string",
-                    "description": "Path to .codeindex/index.db. Auto-discovered from cwd if omitted.",
+                    "description": "Path to .blastradius/index.db. Auto-discovered from cwd if omitted.",
                 },
             },
             "required": ["file"],
@@ -208,7 +208,7 @@ TOOLS = [
                 },
                 "db_path": {
                     "type": "string",
-                    "description": "Path to .codeindex/index.db. Auto-discovered from cwd if omitted.",
+                    "description": "Path to .blastradius/index.db. Auto-discovered from cwd if omitted.",
                 },
             },
             "required": ["file"],
@@ -230,7 +230,7 @@ TOOLS = [
                 },
                 "db_path": {
                     "type": "string",
-                    "description": "Path to .codeindex/index.db. Auto-discovered from cwd if omitted.",
+                    "description": "Path to .blastradius/index.db. Auto-discovered from cwd if omitted.",
                 },
             },
             "required": ["ref"],
@@ -245,7 +245,7 @@ def _resolve_index(index_path: str | None) -> dict:
     discovered = find_index(Path.cwd())
     if not discovered:
         raise FileNotFoundError(
-            f"No {INDEX_FILENAME} found. Run: codeindex analyze <repo>"
+            f"No {INDEX_FILENAME} found. Run: blastradius analyze <repo>"
         )
     return load(discovered)
 
@@ -342,13 +342,13 @@ def _resolve_symbol_index(symbol_index_path: str | None) -> dict:
         p = _find_symbol_index(Path.cwd())
     if not p or not p.exists():
         raise FileNotFoundError(
-            f"No {SYMBOL_INDEX_FILENAME} found. Run: codeindex symbols <repo>"
+            f"No {SYMBOL_INDEX_FILENAME} found. Run: blastradius symbols <repo>"
         )
     return json.loads(p.read_text())
 
 
 def _call_lookup_symbol(params: dict) -> dict:
-    from codeindex.store import Store
+    from blastradius.store import Store
 
     name = params["name"]
     matches = []
@@ -394,7 +394,7 @@ def _call_lookup_symbol(params: dict) -> dict:
 
 
 def _call_build_symbol_index(params: dict) -> dict:
-    from codeindex.symbols import build_symbol_index as _build, write_standalone  # noqa: PLC0415
+    from blastradius.symbols import build_symbol_index as _build, write_standalone  # noqa: PLC0415
     repo_path = params["repo_path"]
     symbol_data = _build(repo_path)
     out = Path(repo_path) / SYMBOL_INDEX_FILENAME
@@ -409,7 +409,7 @@ def _call_build_symbol_index(params: dict) -> dict:
 
 def _resolve_db(params: dict):
     """Return an open Store for the db_path in params or auto-discovered from cwd."""
-    from codeindex.store import Store
+    from blastradius.store import Store
     db_path_str = params.get("db_path")
     if db_path_str:
         db_path = Path(db_path_str)
@@ -417,24 +417,24 @@ def _resolve_db(params: dict):
         db_path = find_db(Path.cwd())
     if not db_path or not db_path.exists():
         raise FileNotFoundError(
-            "No .codeindex/index.db found — run: codeindex analyze <repo>"
+            "No .blastradius/index.db found — run: blastradius analyze <repo>"
         )
     return Store(db_path)
 
 
 def _call_semantic_search(params: dict) -> dict:
-    from codeindex.semantic.search import hybrid_search
+    from blastradius.semantic.search import hybrid_search
     import os
 
     store = _resolve_db(params)
 
     provider = None
-    endpoint = os.environ.get("CODEINDEX_EMBEDDING_ENDPOINT", "")
-    model = os.environ.get("CODEINDEX_EMBEDDING_MODEL", "")
-    dims_str = os.environ.get("CODEINDEX_EMBEDDING_DIMS", "")
+    endpoint = os.environ.get("BLASTRADIUS_EMBEDDING_ENDPOINT", "")
+    model = os.environ.get("BLASTRADIUS_EMBEDDING_MODEL", "")
+    dims_str = os.environ.get("BLASTRADIUS_EMBEDDING_DIMS", "")
     if endpoint and model and dims_str:
         try:
-            from codeindex.semantic.provider import OpenAIEmbeddingProvider
+            from blastradius.semantic.provider import OpenAIEmbeddingProvider
             provider = OpenAIEmbeddingProvider(
                 endpoint=endpoint, model=model, dims=int(dims_str)
             )
@@ -504,7 +504,7 @@ def _call_temporal_impact(params: dict) -> dict:
             return {
                 "error": (
                     f"No temporal data for {file_id} at {as_of}. "
-                    "Run `codeindex history` to backfill or `codeindex analyze` at each commit."
+                    "Run `blastradius history` to backfill or `blastradius analyze` at each commit."
                 )
             }
         return {
@@ -657,7 +657,7 @@ def _handle(msg: dict) -> dict | None:
         return ok({
             "protocolVersion": "2024-11-05",
             "capabilities": {"tools": {}},
-            "serverInfo": {"name": "codeindex", "version": "0.1.0"},
+            "serverInfo": {"name": "blastradius", "version": "0.1.0"},
         })
 
     if method == "notifications/initialized":
@@ -690,7 +690,7 @@ def _handle(msg: dict) -> dict | None:
 
 
 def serve() -> None:
-    print("[codeindex MCP] ready on stdio", file=sys.stderr)
+    print("[blastradius MCP] ready on stdio", file=sys.stderr)
     for line in sys.stdin:
         line = line.strip()
         if not line:

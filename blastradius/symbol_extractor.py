@@ -1,4 +1,4 @@
-"""Per-language symbol extraction for the codeindex symbol index."""
+"""Per-language symbol extraction for the blastradius symbol index."""
 from __future__ import annotations
 import ast
 import re

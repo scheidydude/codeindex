@@ -7,8 +7,8 @@ import sys
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from codeindex.store.db import Store
-    from codeindex.semantic.provider import EmbeddingProvider
+    from blastradius.store.db import Store
+    from blastradius.semantic.provider import EmbeddingProvider
 
 _RRF_K = 60  # standard RRF constant
 
@@ -67,10 +67,10 @@ def hybrid_search(
             if sem_ids:
                 ranked_lists.append(sem_ids)
         except Exception as exc:
-            print(f"[codeindex] semantic search skipped: {exc}", file=sys.stderr)
+            print(f"[blastradius] semantic search skipped: {exc}", file=sys.stderr)
     elif provider is not None and not store._has_vec:
         print(
-            "[codeindex] sqlite-vec not available — falling back to FTS + graph search.",
+            "[blastradius] sqlite-vec not available — falling back to FTS + graph search.",
             file=sys.stderr,
         )
 
@@ -82,7 +82,7 @@ def hybrid_search(
         if fts_ids:
             ranked_lists.append(fts_ids)
     except Exception as exc:
-        print(f"[codeindex] FTS search skipped: {exc}", file=sys.stderr)
+        print(f"[blastradius] FTS search skipped: {exc}", file=sys.stderr)
 
     # 3. Graph expansion: supplement when primary signals are sparse.
     # Skip if FTS (or semantic) already returned enough results — graph neighbours

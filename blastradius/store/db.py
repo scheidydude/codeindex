@@ -1,9 +1,9 @@
 # Copyright 2026 David Scheiderman
 # Licensed under the Apache License, Version 2.0
-"""SQLite-backed persistent store for codeindex graph data.
+"""SQLite-backed persistent store for blastradius graph data.
 
-Dependency rule: this module must not import from codeindex.graph or
-codeindex.semantic. The dependency arrow points only upward into this layer.
+Dependency rule: this module must not import from blastradius.graph or
+blastradius.semantic. The dependency arrow points only upward into this layer.
 """
 from __future__ import annotations
 
@@ -185,7 +185,7 @@ class Store:
             self._vec_dims = int(dims_str)
             self._has_vec = True
         except Exception as exc:
-            print(f"[codeindex] sqlite-vec load failed: {exc}", file=sys.stderr)
+            print(f"[blastradius] sqlite-vec load failed: {exc}", file=sys.stderr)
             self._has_vec = False
 
     # ── meta ──────────────────────────────────────────────────────────────────
@@ -551,7 +551,7 @@ class Store:
         obtained via `git log --format=%H <ref>`.
         Returns None if no temporal data is available.
         """
-        from codeindex.impact import compute_blast_radius  # avoid circular at module level
+        from blastradius.impact import compute_blast_radius  # avoid circular at module level
 
         self._populate_reachable_temp(reachable)
 
@@ -607,7 +607,7 @@ class Store:
         if row and row[0] <= 1:
             return (
                 "Git history has not been backfilled — all files share the same "
-                "first_seen_commit. Run `codeindex history` first for accurate "
+                "first_seen_commit. Run `blastradius history` first for accurate "
                 "changed_since results."
             )
         return None
@@ -690,8 +690,8 @@ class Store:
         """
         if not _HAS_SQLITE_VEC:
             print(
-                "[codeindex] sqlite-vec not installed — semantic search unavailable. "
-                "Install with: pip install 'codeindex[semantic]'",
+                "[blastradius] sqlite-vec not installed — semantic search unavailable. "
+                "Install with: pip install 'blastradius[semantic]'",
                 file=sys.stderr,
             )
             return False
@@ -711,7 +711,7 @@ class Store:
             self._conn.commit()
             return True
         except Exception as exc:
-            print(f"[codeindex] sqlite-vec init failed: {exc}", file=sys.stderr)
+            print(f"[blastradius] sqlite-vec init failed: {exc}", file=sys.stderr)
             self._has_vec = False
             return False
 
@@ -1014,7 +1014,7 @@ class Store:
     # ── status ────────────────────────────────────────────────────────────────
 
     def status(self) -> dict:
-        """Return a snapshot of store state for `codeindex db status`."""
+        """Return a snapshot of store state for `blastradius db status`."""
         try:
             fts_rows = self._conn.execute(
                 "SELECT COUNT(*) FROM symbols_fts"
