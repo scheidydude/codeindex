@@ -1,4 +1,4 @@
-# CKG-INTERNALS: codeindex Internal Architecture
+# CKG-INTERNALS: blastradius Internal Architecture
 
 | | |
 |---|---|
@@ -14,7 +14,7 @@ Produced per Phase 0 of CKG-DESIGN-001. Documents current module structure, data
 ## 1. Module Map
 
 ```
-codeindex/
+blastradius/
   __init__.py              — package metadata; version "0.1.0"
   cli.py                   — argparse CLI; 8 commands; dispatch table at line 353
   index.py                 — build() orchestrator; load() reader; find_index() discovery
@@ -22,7 +22,8 @@ codeindex/
   impact.py                — BFS blast radius; enrich_nodes(); enrich_links()
   symbols.py               — symbol index builder; write_standalone(); write_inline()
   symbol_extractor.py      — per-language symbol extraction (AST + regex)
-  mcp_server.py            — JSON-RPC 2.0 stdio MCP server; 6 tools
+  mcp_server.py            — SDK-backed stdio MCP server; 10 tools
+  artifacts.py             — per-request artifact resolution and database lifetime
   viz_server.py            — HTTP server for D3/Three.js viz; /graph + /refresh endpoints
   hook.py                  — git pre-commit hook installer
   reporter.py              — blast report formatter (stdout / markdown / JSON)
@@ -72,10 +73,10 @@ for lang in detected_langs:
 All analyzers return the same 4-tuple:
 
 ```python
-nodes: list[dict]            # repo-internal files
-external_nodes: list[dict]   # external packages (type="import")
+nodes: list[dict]  # repo-internal files
+external_nodes: list[dict]  # external packages (type="import")
 links_map: dict[tuple, int]  # {(source_id, target_id): weight}
-meta: dict                   # {"total_files": N, "total_loc": M, "framework": "..."}
+meta: dict  # {"total_files": N, "total_loc": M, "framework": "..."}
 ```
 
 ### 2.4 Node schema (minimal)
@@ -109,16 +110,18 @@ After enrichment, nodes also carry: `blast_score`, `direct_dependents`, `transit
 ```python
 def build(repo_path, output):
     root = Path(repo_path).resolve()
-    data = analyze(str(root))                        # language detection + parsing
+    data = analyze(str(root))  # language detection + parsing
     blast = compute_blast_radius(data["nodes"], data["links"])  # impact.py:6–68
-    enrich_nodes(data["nodes"], blast)               # impact.py:71–78 — mutates nodes
-    enrich_links(data["nodes"], data["links"])        # impact.py:81–99 — adds imports/imported_by
+    enrich_nodes(data["nodes"], blast)  # impact.py:71–78 — mutates nodes
+    enrich_links(
+        data["nodes"], data["links"]
+    )  # impact.py:81–99 — adds imports/imported_by
     data["meta"]["indexed"] = True
     dest = output or (root / INDEX_FILENAME)
-    dest.write_text(json.dumps(data, indent=2))      # writes codeindex.json
+    dest.write_text(json.dumps(data, indent=2))  # writes blastradius.json
 ```
 
-`INDEX_FILENAME = "codeindex.json"` (index.py top).
+`INDEX_FILENAME = "blastradius.json"` (index.py top).
 
 ---
 
@@ -148,7 +151,7 @@ Result keyed by node ID:
 
 ## 5. JSON Output
 
-### 5.1 `codeindex.json` — written by `index.py:25`
+### 5.1 `blastradius.json` — written by `index.py:25`
 
 ```json
 {
@@ -186,7 +189,7 @@ Result keyed by node ID:
 
 ```json
 {
-  "meta": {"generated": "2026-06-07", "repo": "codeindex/", "total_symbols": 156},
+  "meta": {"generated": "2026-06-07", "repo": "blastradius/", "total_symbols": 156},
   "symbols": {
     "MyClass": [{"file": "src/main.py", "line": 42, "kind": "class", "exported": true, "methods": ["run"]}]
   },
@@ -201,7 +204,7 @@ Result keyed by node ID:
 | Function | Location | Purpose |
 |---|---|---|
 | `write_standalone()` | `symbols.py:77–85` | Writes `symbolindex.json` |
-| `write_inline()` | `symbols.py:88–114` | Merges symbol data into `codeindex.json` nodes |
+| `write_inline()` | `symbols.py:88–114` | Merges symbol data into `blastradius.json` nodes |
 | `write_claude_md()` | `symbols.py:146–171` | Upserts a symbol section into `CLAUDE.md` |
 
 ---
@@ -230,14 +233,14 @@ Entry point: `main()` at line 349. Argparse subparsers (line 265–346).
 
 ```python
 dispatch = {
-    "analyze":      _cmd_analyze,      # line 9 — calls index.build(); --watch mode
-    "impact":       _cmd_impact,       # line 64 — blast report for one file
-    "serve":        _cmd_serve,        # line 125 — MCP or viz server
-    "symbols":      _cmd_symbols,      # line 140 — build symbol index
-    "lookup":       _cmd_lookup,       # line 172 — symbol lookup by name
-    "dependencies": _cmd_dependencies, # line 188 — imports/imported_by for a file
-    "high-blast":   _cmd_high_blast,   # line 226 — list files above threshold
-    "install-hook": _cmd_install_hook, # line 254 — git pre-commit hook
+    "analyze": _cmd_analyze,  # line 9 — calls index.build(); --watch mode
+    "impact": _cmd_impact,  # line 64 — blast report for one file
+    "serve": _cmd_serve,  # line 125 — MCP or viz server
+    "symbols": _cmd_symbols,  # line 140 — build symbol index
+    "lookup": _cmd_lookup,  # line 172 — symbol lookup by name
+    "dependencies": _cmd_dependencies,  # line 188 — imports/imported_by for a file
+    "high-blast": _cmd_high_blast,  # line 226 — list files above threshold
+    "install-hook": _cmd_install_hook,  # line 254 — git pre-commit hook
 }
 ```
 
@@ -247,34 +250,51 @@ All query commands load the index via `index.load()` (reads JSON from disk).
 
 ## 8. MCP Server (`mcp_server.py`)
 
-Protocol: JSON-RPC 2.0 over stdio. Entry: `serve()` at line 331.
+Protocol: JSON-RPC 2.0 over stdio, using the official Python MCP SDK v2.
+`serve(repo_path=None)` accepts a fixed default repository without changing cwd.
+Both legacy initialization and modern `2026-07-28` requests are supported.
 
-**Registered tools** (schemas at lines 12–124; handlers at lines 151–266):
+**Registered tools** (explicit input schemas are validated before execution):
 
 | Tool | Handler | Core call |
 |---|---|---|
 | `analyze_repo` | `_call_analyze_repo` | `index.build()` |
 | `get_impact` | `_call_get_impact` | `compute_blast_radius()` |
-| `get_dependencies` | `_call_get_dependencies` | `index.load()` → node lookup |
-| `get_high_blast_files` | `_call_get_high_blast_files` | `index.load()` → filter |
-| `lookup_symbol` | `_call_lookup_symbol` | `symbolindex.json` → dict lookup |
+| `get_dependencies` | `_call_get_dependencies` | `artifacts.index()` → node lookup |
+| `get_high_blast_files` | `_call_get_high_blast_files` | `artifacts.index()` → filter |
+| `lookup_symbol` | `_call_lookup_symbol` | explicit symbol JSON, otherwise SQLite with JSON fallback |
 | `build_symbol_index` | `_call_build_symbol_index` | `symbols.build_symbol_index()` |
+| `semantic_search` | `_call_semantic_search` | keyword + graph search, optional embeddings |
+| `temporal_impact` | `_call_temporal_impact` | historical store query or selected repository's JSON graph |
+| `graph_query` | `_call_graph_query` | store neighborhood query |
+| `changed_since` | `_call_changed_since` | temporal store query + Git changes |
 
-**Key helpers**:
-- `_resolve_index()` (line 127) — loads `codeindex.json`; auto-discovers by walking up from cwd
-- `_resolve_file_id()` (line 138) — fuzzy-matches a path to a node ID by suffix
-- `_handle()` (line 284) — routes JSON-RPC method → handler
+**Execution and resolution**:
+
+- The SDK owns protocol routing, initialization/discovery, and cancellation.
+  A narrow input adapter reports malformed frames and rejects invalid request IDs.
+- Blocking tool work runs in a serialized worker; the protocol loop stays responsive.
+- `artifacts.Artifacts` owns a call's artifact selection and database cleanup.
+  Explicit paths win over `--repo`; cwd discovery is used only without `--repo`.
+- `Artifacts.index_for_file()` keeps a selected JSON export independent of source
+  path resolution. Absolute paths must match an exact node relative to the graph
+  directory or configured/discovered repository context; conflicting matches fail.
+  Detached exports require that context or a repo-relative query, not a suffix guess.
+- `artifacts.resolve_file_id()` prefers exact paths and rejects ambiguous suffixes.
+- Malformed calls and invalid arguments return protocol errors; execution failures
+  use `isError: true`. Successful tools retain their existing JSON text payloads.
+  Cancellation suppresses replies but does not roll back running writes.
 
 ---
 
-## 9. Viz (`viz_server.py`, `viz/explorer.html`)
+## 9. Viz (`viz_server.py`, `blastradius/static/explorer.html`)
 
 HTTP server using stdlib `http.server`. Routes:
 
 | Route | Handler | Response |
 |---|---|---|
-| `/`, `/index.html` | `do_GET` (line 53) | Serves `viz/explorer.html` |
-| `/graph` | `do_GET` (line 60) | Serves `codeindex.json` as JSON |
+| `/`, `/index.html` | `do_GET` | Serves packaged `blastradius/static/explorer.html` |
+| `/graph` | `do_GET` (line 60) | Serves `blastradius.json` as JSON |
 | `/refresh` | `do_GET` (line 65) | Calls `_run_analysis()` → `index.build()` |
 
 Watch mode (`viz_server.py:73–109`): watchdog observer + 1 s debounce timer triggers `_run_analysis()` on file changes.
@@ -344,7 +364,7 @@ cli.py main()
             ├─ enrich_nodes()                   ← mutate nodes with blast fields
             ├─ enrich_links()                   ← add imports/imported_by to nodes
             │                                   ← SEAM A: upsert to SQLite here
-            └─ write codeindex.json
+            └─ write blastradius.json
 
 cli.py / mcp_server.py (query commands)
   └─ index.load(path)                           ← SEAM B: replace with DB read

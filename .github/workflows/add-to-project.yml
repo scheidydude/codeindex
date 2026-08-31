@@ -4,11 +4,31 @@ on:
     types: [opened, reopened, labeled]
   pull_request:
     types: [opened, reopened, labeled]
+
+# Project access comes from the dedicated PAT, not the repository GITHUB_TOKEN.
+permissions: {}
+
 jobs:
   add:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/add-to-project@v1.0.0
+      - name: Check project configuration
+        id: configuration
+        env:
+          PROJECT_URL: ${{ vars.ADD_TO_PROJECT_URL }}
+          HAS_PROJECT_TOKEN: ${{ secrets.ADD_TO_PROJECT_PAT != '' }}
+        shell: bash
+        run: |
+          if [[ -z "$PROJECT_URL" || "$HAS_PROJECT_TOKEN" != "true" ]]; then
+            echo "::notice::Skipping project assignment: configure repository variable ADD_TO_PROJECT_URL and secret ADD_TO_PROJECT_PAT. Secrets are unavailable for fork pull requests."
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Add issue or pull request to project
+        if: ${{ steps.configuration.outputs.configured == 'true' }}
+        uses: actions/add-to-project@5afcf98fcd03f1c2f92c3c83f58ae24323cc57fd # v2.0.0
         with:
-          project-url: https://github.com/users/scheidydude/projects/2
+          project-url: ${{ vars.ADD_TO_PROJECT_URL }}
           github-token: ${{ secrets.ADD_TO_PROJECT_PAT }}

@@ -9,21 +9,18 @@ Acceptance criteria (from CKG-DESIGN-001):
   3. Full backfill completes without modifying the working tree;
      commits table is populated.
 """
+
 from __future__ import annotations
 
-import json
-import os
 import shutil
-import stat
 import subprocess
 from pathlib import Path
-
-import pytest
 
 FIXTURE_SRC = Path(__file__).parent / "fixtures" / "simple_python"
 
 
 # ── helpers ──────────────────────────────────────────────────────────────────
+
 
 def _git(repo: Path, *args: str) -> str:
     r = subprocess.run(
@@ -46,12 +43,15 @@ def _commit_all(repo: Path, message: str) -> str:
 
 def _run_analyze(repo: Path) -> None:
     import importlib
-    import codeindex.index as idx_mod
+
+    import blastradius.index as idx_mod
+
     importlib.reload(idx_mod)
     idx_mod.build(str(repo))
 
 
 # ── Fixture: add-dep then remove-dep history ─────────────────────────────────
+
 
 def _make_temporal_repo(tmp_path: Path) -> tuple[Path, str, str, str]:
     """Create repo: C1=baseline, C2=add edge B→A, C3=remove edge.
@@ -84,12 +84,13 @@ def _make_temporal_repo(tmp_path: Path) -> tuple[Path, str, str, str]:
 
 # ── Test 1: as_of_impact differs between C2 and HEAD ─────────────────────────
 
+
 def test_as_of_impact_differs_from_head(tmp_path: Path) -> None:
     """impact B --as-of C2 shows A as dependent; impact B at HEAD does not."""
-    from codeindex.store import Store
-    from codeindex.index import db_path_for, git_reachable, git_resolve
+    from blastradius.index import db_path_for, git_reachable
+    from blastradius.store import Store
 
-    repo, c1, c2, c3 = _make_temporal_repo(tmp_path)
+    repo, _c1, c2, c3 = _make_temporal_repo(tmp_path)
     db_path = db_path_for(repo)
     store = Store(db_path)
 
@@ -117,12 +118,13 @@ def test_as_of_impact_differs_from_head(tmp_path: Path) -> None:
 
 # ── Test 2: changed_since lists added/removed edges ──────────────────────────
 
+
 def test_changed_since_edges(tmp_path: Path) -> None:
     """changed_since(reachable_C1) shows added edge at C2 and its removal."""
-    from codeindex.store import Store
-    from codeindex.index import db_path_for, git_reachable
+    from blastradius.index import db_path_for, git_reachable
+    from blastradius.store import Store
 
-    repo, c1, c2, c3 = _make_temporal_repo(tmp_path)
+    repo, c1, _c2, _c3 = _make_temporal_repo(tmp_path)
     db_path = db_path_for(repo)
     store = Store(db_path)
 
@@ -140,19 +142,20 @@ def test_changed_since_edges(tmp_path: Path) -> None:
 
 # ── Test 3: history backfill populates commits table ─────────────────────────
 
+
 def test_history_backfill_commits(tmp_path: Path) -> None:
-    """codeindex history populates the commits table."""
-    from codeindex.store import Store
-    from codeindex.index import db_path_for
-    from codeindex.temporal import backfill
+    """blastradius history populates the commits table."""
+    from blastradius.index import db_path_for
+    from blastradius.store import Store
+    from blastradius.temporal import backfill
 
     repo = tmp_path / "hist_repo"
     shutil.copytree(FIXTURE_SRC, repo)
     _setup_git(repo)
 
-    c1 = _commit_all(repo, "init")
+    _commit_all(repo, "init")
     (repo / "models.py").write_text((repo / "models.py").read_text() + "\n# v2\n")
-    c2 = _commit_all(repo, "modify models")
+    _commit_all(repo, "modify models")
 
     # Analyze at HEAD only (don't analyze at c1)
     _run_analyze(repo)
@@ -173,11 +176,12 @@ def test_history_backfill_commits(tmp_path: Path) -> None:
 
 # ── Test 4: history backfill sets first_seen_commit ──────────────────────────
 
+
 def test_history_backfill_first_seen(tmp_path: Path) -> None:
     """After backfill, files have first_seen_commit set."""
-    from codeindex.store import Store
-    from codeindex.index import db_path_for
-    from codeindex.temporal import backfill
+    from blastradius.index import db_path_for
+    from blastradius.store import Store
+    from blastradius.temporal import backfill
 
     repo = tmp_path / "seen_repo"
     shutil.copytree(FIXTURE_SRC, repo)
@@ -204,11 +208,12 @@ def test_history_backfill_first_seen(tmp_path: Path) -> None:
 
 # ── Test 5: backfill never modifies working tree ─────────────────────────────
 
+
 def test_history_no_working_tree_change(tmp_path: Path) -> None:
     """git status is clean before and after backfill (no checkout side-effects)."""
-    from codeindex.store import Store
-    from codeindex.index import db_path_for
-    from codeindex.temporal import backfill
+    from blastradius.index import db_path_for
+    from blastradius.store import Store
+    from blastradius.temporal import backfill
 
     repo = tmp_path / "clean_repo"
     shutil.copytree(FIXTURE_SRC, repo)
@@ -231,20 +236,24 @@ def test_history_no_working_tree_change(tmp_path: Path) -> None:
             f"Backfill modified working-tree file: {f}"
         )
 
-    # Git status should show clean (only .codeindex/ and generated files differ)
+    # Git status should show clean (only .blastradius/ and generated files differ)
     status = subprocess.run(
         ["git", "status", "--porcelain", "--", "*.py"],
-        cwd=repo, capture_output=True, text=True,
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=True,
     ).stdout.strip()
     assert status == "", f"Working tree dirty after backfill:\n{status}"
 
 
 # ── Test 6: changed-since shows added file ────────────────────────────────────
 
+
 def test_changed_since_added_file(tmp_path: Path) -> None:
     """changed_since(C1) shows a file added at C2."""
-    from codeindex.store import Store
-    from codeindex.index import db_path_for, git_reachable
+    from blastradius.index import db_path_for, git_reachable
+    from blastradius.store import Store
 
     repo = tmp_path / "addfile_repo"
     shutil.copytree(FIXTURE_SRC, repo)
@@ -254,7 +263,7 @@ def test_changed_since_added_file(tmp_path: Path) -> None:
 
     # Add a new file and commit
     (repo / "new_module.py").write_text('"""New module."""\nVALUE = 99\n')
-    c2 = _commit_all(repo, "add new_module")
+    _commit_all(repo, "add new_module")
     _run_analyze(repo)
 
     db_path = db_path_for(repo)
